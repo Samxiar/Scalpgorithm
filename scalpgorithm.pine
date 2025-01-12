@@ -1,0 +1,121 @@
+//@version=5
+// © 2025 Samxiar Industries. All rights reserved.
+// This script is a proprietary tool developed by Samxiar Industries for educational and commercial use. 
+// Unauthorized reproduction, distribution, or modification of this script is prohibited.
+indicator("Scalpgorithm By SamFx", overlay = true)
+
+// Inputs
+length = input.int(14, 'Swing Detection Lookback')
+mult = input.float(1., 'Slope', minval = 0, step = .1)
+calcMethod = input.string('Atr', 'Slope Calculation Method', options = ['Atr','Stdev','Linreg'])
+backpaint = input(true)
+
+upCss = input.color(color.teal, 'Up Trendline Color', group = 'Style')
+dnCss = input.color(color.red, 'Down Trendline Color', group = 'Style')
+showExt = input(true, 'Show Extended Lines')
+
+// Multi-Timeframe Inputs
+tf_1min = input.timeframe('1', "1 Minute")
+tf_5min = input.timeframe('5', "5 Minute")
+tf_15min = input.timeframe('15', "15 Minute")
+tf_30min = input.timeframe('30', "30 Minute")
+tf_1hr = input.timeframe('60', "1 Hour")
+
+// Variables
+var upper = 0.
+var lower = 0.
+var slope_ph = 0.
+var slope_pl = 0.
+var offset = backpaint ? length : 0
+
+n = bar_index
+src = close
+
+ph = ta.pivothigh(length, length)
+pl = ta.pivotlow(length, length)
+
+slope = switch calcMethod
+    'Atr'    => ta.atr(length) / length * mult
+    'Stdev'  => ta.stdev(src,length) / length * mult
+    'Linreg' => math.abs(ta.sma(src * n, length) - ta.sma(src, length) * ta.sma(n, length)) / ta.variance(n, length) / 2 * mult
+
+slope_ph := ph ? slope : slope_ph
+slope_pl := pl ? slope : slope_pl
+
+upper := ph ? ph : upper - slope_ph
+lower := pl ? pl : lower + slope_pl
+
+var upos = 0
+var dnos = 0
+upos := ph ? 0 : close > upper - slope_ph * length ? 1 : upos
+dnos := pl ? 0 : close < lower + slope_pl * length ? 1 : dnos
+
+var uptl  = line.new(na,na,na,na, color = upCss, style = line.style_dashed, extend = extend.right)
+var dntl  = line.new(na,na,na,na, color = dnCss, style = line.style_dashed, extend = extend.right)
+
+if ph and showExt
+    uptl.set_xy1(n-offset, backpaint ? ph : upper - slope_ph * length)
+    uptl.set_xy2(n-offset+1, backpaint ? ph - slope : upper - slope_ph * (length+1))
+
+if pl and showExt
+    dntl.set_xy1(n-offset, backpaint ? pl : lower + slope_pl * length)
+    dntl.set_xy2(n-offset+1, backpaint ? pl + slope : lower + slope_pl * (length+1))
+
+plot(backpaint ? upper : upper - slope_ph * length, 'Upper', color = ph ? na : upCss, offset = -offset)
+plot(backpaint ? lower : lower + slope_pl * length, 'Lower', color = pl ? na : dnCss, offset = -offset)
+
+plotshape(upos > upos[1] ? low : na, "Upper Break"
+  , shape.labelup
+  , location.absolute
+  , upCss
+  , text = "B"
+  , textcolor = color.white
+  , size = size.tiny)
+
+plotshape(dnos > dnos[1] ? high : na, "Lower Break"
+  , shape.labeldown
+  , location.absolute
+  , dnCss
+  , text = "B"
+  , textcolor = color.white
+  , size = size.tiny)
+
+alertcondition(upos > upos[1], 'Upward Breakout', 'Price broke the down-trendline upward')
+alertcondition(dnos > dnos[1], 'Downward Breakout', 'Price broke the up-trendline downward')
+
+// Multi-Timeframe Signals and Table
+var table data_table = table.new(position=position.top_right, columns=2, rows=6, bgcolor=chart.bg_color, border_width=1, border_color=chart.fg_color)
+
+// Functions to retrieve signals for each timeframe
+getSignal(tf) =>
+    request.security(syminfo.tickerid, tf, upos - dnos)
+
+if barstate.islast
+    table.cell(data_table, 0, 0, text="Timeframe", text_halign=text.align_center, bgcolor=color.black, text_color=color.white)
+    table.cell(data_table, 1, 0, text="Signal", text_halign=text.align_center, bgcolor=color.black, text_color=color.white)
+
+    // Getting signals for each timeframe
+    tf_signal_1min = getSignal(tf_1min)
+    tf_signal_5min = getSignal(tf_5min)
+    tf_signal_15min = getSignal(tf_15min)
+    tf_signal_30min = getSignal(tf_30min)
+    tf_signal_1hr = getSignal(tf_1hr)
+
+    // Update the table with signals for each timeframe
+    table.cell(data_table, 0, 1, text="1 Min", text_halign=text.align_center, text_color=color.white)
+    table.cell(data_table, 1, 1, text=tf_signal_1min > 0 ? "Upward" : tf_signal_1min < 0 ? "Downward" : "Neutral", bgcolor=tf_signal_1min > 0 ? color.new(upCss, 70) : tf_signal_1min < 0 ? color.new(dnCss, 70) : na, text_halign=text.align_center, text_color=color.white)
+    
+    table.cell(data_table, 0, 2, text="5 Min", text_halign=text.align_center, text_color=color.white)
+    table.cell(data_table, 1, 2, text=tf_signal_5min > 0 ? "Upward" : tf_signal_5min < 0 ? "Downward" : "Neutral", bgcolor=tf_signal_5min > 0 ? color.new(upCss, 70) : tf_signal_5min < 0 ? color.new(dnCss, 70) : na, text_halign=text.align_center, text_color=color.white)
+    
+    table.cell(data_table, 0, 3, text="15 Min", text_halign=text.align_center, text_color=color.white)
+    table.cell(data_table, 1, 3, text=tf_signal_15min > 0 ? "Upward" : tf_signal_15min < 0 ? "Downward" : "Neutral", bgcolor=tf_signal_15min > 0 ? color.new(upCss, 70) : tf_signal_15min < 0 ? color.new(dnCss, 70) : na, text_halign=text.align_center, text_color=color.white)
+    
+    table.cell(data_table, 0, 4, text="30 Min", text_halign=text.align_center, text_color=color.white)
+    table.cell(data_table, 1, 4, text=tf_signal_30min > 0 ? "Upward" : tf_signal_30min < 0 ? "Downward" : "Neutral", bgcolor=tf_signal_30min > 0 ? color.new(upCss, 70) : tf_signal_30min < 0 ? color.new(dnCss, 70) : na, text_halign=text.align_center, text_color=color.white)
+
+    table.cell(data_table, 0, 5, text="1 Hr", text_halign=text.align_center, text_color=color.white)
+    table.cell(data_table, 1, 5, text=tf_signal_1hr > 0 ? "Upward" : tf_signal_1hr < 0 ? "Downward" : "Neutral", bgcolor=tf_signal_1hr > 0 ? color.new(upCss, 70) : tf_signal_1hr < 0 ? color.new(dnCss, 70) : na, text_halign=text.align_center, text_color=color.white)
+
+alertcondition(upos > upos[1], 'Multi-Timeframe Upward Breakout', 'Price shows upward breakout in multiple timeframes')
+alertcondition(dnos > dnos[1], 'Multi-Timeframe Downward Breakout', 'Price shows downward breakout in multiple timeframes')
