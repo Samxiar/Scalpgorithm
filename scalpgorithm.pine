@@ -84,15 +84,27 @@ alertcondition(upos > upos[1], 'Upward Breakout', 'Price broke the down-trendlin
 alertcondition(dnos > dnos[1], 'Downward Breakout', 'Price broke the up-trendline downward')
 
 // Multi-Timeframe Signals and Table
-var table data_table = table.new(position=position.top_right, columns=2, rows=6, bgcolor=chart.bg_color, border_width=1, border_color=chart.fg_color)
+var table data_table = table.new(position=position.top_right, columns=4, rows=7, bgcolor=chart.bg_color, border_width=1, border_color=chart.fg_color)
 
 // Functions to retrieve signals for each timeframe
 getSignal(tf) =>
     request.security(syminfo.tickerid, tf, upos - dnos)
 
+// Session Times for Sydney, Tokyo, Asian, London, and New York
+session_sydney = (hour >= 22 or hour < 7)  // Sydney session time range (10 PM to 7 AM UTC)
+session_tokyo = (hour >= 7 and hour < 16) // Tokyo session time range (7 AM to 4 PM UTC)
+session_asian = (hour >= 0 and hour < 9)  // Asian session time range (Midnight to 9 AM UTC)
+session_london = (hour >= 9 and hour < 17) // London session time range (9 AM to 5 PM UTC)
+session_ny = (hour >= 17 and hour < 24)  // New York session time range (5 PM to Midnight UTC)
+
+// Function to return session name with color
+getSessionNameColor(session_condition) =>
+    session_condition ? color.new(color.green, 70) : color.new(color.red, 70)
+
 if barstate.islast
     table.cell(data_table, 0, 0, text="Timeframe", text_halign=text.align_center, bgcolor=color.black, text_color=color.white)
     table.cell(data_table, 1, 0, text="Signal", text_halign=text.align_center, bgcolor=color.black, text_color=color.white)
+    table.cell(data_table, 2, 0, text="Session", text_halign=text.align_center, bgcolor=color.black, text_color=color.white)
 
     // Getting signals for each timeframe
     tf_signal_1min = getSignal(tf_1min)
@@ -101,21 +113,26 @@ if barstate.islast
     tf_signal_30min = getSignal(tf_30min)
     tf_signal_1hr = getSignal(tf_1hr)
 
-    // Update the table with signals for each timeframe
+    // Update the table with signals for each timeframe and session labels
     table.cell(data_table, 0, 1, text="1 Min", text_halign=text.align_center, text_color=color.white)
     table.cell(data_table, 1, 1, text=tf_signal_1min > 0 ? "Upward" : tf_signal_1min < 0 ? "Downward" : "Neutral", bgcolor=tf_signal_1min > 0 ? color.new(upCss, 70) : tf_signal_1min < 0 ? color.new(dnCss, 70) : na, text_halign=text.align_center, text_color=color.white)
+    table.cell(data_table, 2, 1, text="Sydney", text_halign=text.align_center, bgcolor=getSessionNameColor(session_sydney), text_color=color.white)
     
     table.cell(data_table, 0, 2, text="5 Min", text_halign=text.align_center, text_color=color.white)
     table.cell(data_table, 1, 2, text=tf_signal_5min > 0 ? "Upward" : tf_signal_5min < 0 ? "Downward" : "Neutral", bgcolor=tf_signal_5min > 0 ? color.new(upCss, 70) : tf_signal_5min < 0 ? color.new(dnCss, 70) : na, text_halign=text.align_center, text_color=color.white)
+    table.cell(data_table, 2, 2, text="Tokyo", text_halign=text.align_center, bgcolor=getSessionNameColor(session_tokyo), text_color=color.white)
     
     table.cell(data_table, 0, 3, text="15 Min", text_halign=text.align_center, text_color=color.white)
     table.cell(data_table, 1, 3, text=tf_signal_15min > 0 ? "Upward" : tf_signal_15min < 0 ? "Downward" : "Neutral", bgcolor=tf_signal_15min > 0 ? color.new(upCss, 70) : tf_signal_15min < 0 ? color.new(dnCss, 70) : na, text_halign=text.align_center, text_color=color.white)
-    
+    table.cell(data_table, 2, 3, text="Asian", text_halign=text.align_center, bgcolor=getSessionNameColor(session_asian), text_color=color.white)
+
     table.cell(data_table, 0, 4, text="30 Min", text_halign=text.align_center, text_color=color.white)
     table.cell(data_table, 1, 4, text=tf_signal_30min > 0 ? "Upward" : tf_signal_30min < 0 ? "Downward" : "Neutral", bgcolor=tf_signal_30min > 0 ? color.new(upCss, 70) : tf_signal_30min < 0 ? color.new(dnCss, 70) : na, text_halign=text.align_center, text_color=color.white)
+    table.cell(data_table, 2, 4, text="London", text_halign=text.align_center, bgcolor=getSessionNameColor(session_london), text_color=color.white)
 
     table.cell(data_table, 0, 5, text="1 Hr", text_halign=text.align_center, text_color=color.white)
     table.cell(data_table, 1, 5, text=tf_signal_1hr > 0 ? "Upward" : tf_signal_1hr < 0 ? "Downward" : "Neutral", bgcolor=tf_signal_1hr > 0 ? color.new(upCss, 70) : tf_signal_1hr < 0 ? color.new(dnCss, 70) : na, text_halign=text.align_center, text_color=color.white)
+    table.cell(data_table, 2, 5, text="New York", text_halign=text.align_center, bgcolor=getSessionNameColor(session_ny), text_color=color.white)
 
 alertcondition(upos > upos[1], 'Multi-Timeframe Upward Breakout', 'Price shows upward breakout in multiple timeframes')
 alertcondition(dnos > dnos[1], 'Multi-Timeframe Downward Breakout', 'Price shows downward breakout in multiple timeframes')
