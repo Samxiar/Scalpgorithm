@@ -90,13 +90,13 @@ session_asian = (hour >= 0 and hour < 9)
 session_london = (hour >= 9 and hour < 17)
 session_ny = (hour >= 17 and hour < 24)
 
-getSessionColor(session_condition) => session_condition ? color.new(color.green, 70) : color.new(color.red, 70)
+getSessionColor(session_condition) => session_condition ? color.new(color.green, 70) : color.new(color.gray, 70)
 
 getRSIColor(rsi) =>
-    rsi > 50 ? color.new(color.green, 70) : rsi < 50 ? color.new(color.red, 70): color.gray
+    rsi > 50 ? color.new(color.green, 70) : rsi < 50 ? color.new(color.red, 70): color.red
 
 getMACDColor(macd) =>
-    macd > 0 ? color.new(color.green, 70) : macd < 50 ? color.new(color.red, 70): color.gray
+    macd > 0 ? color.new(color.green, 70) : macd < 50 ? color.new(color.red, 70): color.red
 
 
 if barstate.islast
@@ -105,7 +105,7 @@ if barstate.islast
     rsi_1min = rsi_value(tf_1min)
     macd_1min = macd_value(tf_1min)
     table.cell(data_table, 0, 1, text="1 Min", text_halign=text.align_center, text_color=color.white)
-    table.cell(data_table, 1, 1, text=tf_signal_1min > 0 ? "LONG" : tf_signal_1min < 0 ? "SHORT" : "Neutral", bgcolor=tf_signal_1min > 0 ? color.new(upCss, 70) : tf_signal_1min < 0 ? color.new(dnCss, 70) : na, text_halign=text.align_center, text_color=color.white)
+    table.cell(data_table, 1, 1, text=tf_signal_1min > 0 ? "LONG" : tf_signal_1min < 0 ? "SHORT" : "Wait", bgcolor=tf_signal_1min > 0 ? color.new(upCss, 70) : tf_signal_1min < 0 ? color.new(dnCss, 70) : na, text_halign=text.align_center, text_color=color.white)
     table.cell(data_table, 2, 1, text="RSI: " + str.tostring(rsi_1min, "#.##"), bgcolor=getRSIColor(rsi_1min), text_halign=text.align_center, text_color=color.white)
     table.cell(data_table, 3, 1, text="MACD: " + str.tostring(macd_1min, "#.##"), bgcolor=getMACDColor(macd_1min), text_halign=text.align_center, text_color=color.white)
     table.cell(data_table, 4, 1, text="Sydney", text_halign=text.align_center, bgcolor=getSessionColor(session_sydney), text_color=color.white)
