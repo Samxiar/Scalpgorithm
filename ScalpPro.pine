@@ -1,0 +1,33 @@
+//@version=5
+indicator("Trend-Aligned EMA Scalping Strategy with Trend-Specific Crossover Exit", shorttitle="Scalp Pro BTC by SamFx", overlay=true)
+
+bigEMA = input(200, title="Big EMA Length (Trend)")
+fastEMA = input(9, title="Fast EMA Length (Entry/Exit)")
+slowEMA = input(21, title="Slow EMA Length (Entry/Exit)")
+
+bigEmaValue = ta.ema(close, bigEMA)
+fastEmaValue = ta.ema(close, fastEMA)
+slowEmaValue = ta.ema(close, slowEMA)
+
+trendIsBullish = close > bigEmaValue
+trendIsBearish = close < bigEmaValue
+
+longCondition = trendIsBullish and ta.crossover(fastEmaValue, slowEmaValue)
+shortCondition = trendIsBearish and ta.crossunder(fastEmaValue, slowEmaValue)
+
+exitLongCondition = trendIsBullish and ta.crossunder(fastEmaValue, slowEmaValue)
+exitShortCondition = trendIsBearish and ta.crossover(fastEmaValue, slowEmaValue)
+
+plot(bigEmaValue, color=color.new(color.purple, 0), title="Big EMA (Trend)")
+plot(fastEmaValue, color=color.new(color.blue, 0), title="Fast EMA (Entry/Exit)")
+plot(slowEmaValue, color=color.new(color.orange, 0), title="Slow EMA (Entry/Exit)")
+
+plotshape(longCondition, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, title="Buy Signal")
+plotshape(shortCondition, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, title="Sell Signal")
+plotshape(exitLongCondition, style=shape.cross, location=location.abovebar, color=color.white, size=size.small, title="Exit Long")
+plotshape(exitShortCondition, style=shape.cross, location=location.belowbar, color=color.white, size=size.small, title="Exit Short")
+
+alertcondition(longCondition, title="Buy Alert", message="Buy Signal Detected")
+alertcondition(shortCondition, title="Sell Alert", message="Sell Signal Detected")
+alertcondition(exitLongCondition, title="Exit Long Alert", message="Exit Long Signal Detected")
+alertcondition(exitShortCondition, title="Exit Short Alert", message="Exit Short Signal Detected")
