@@ -1,0 +1,74 @@
+//@version=6
+indicator('MA Crossover Strategy By SamFx', overlay = true)
+
+fastLength = input.int(9, title = 'Fast MA Length', minval = 1)
+slowLength = input.int(21, title = 'Slow MA Length', minval = 1)
+
+riskReward = 2.0
+atrLength = input.int(14, title = 'ATR Length for SL/TP')
+atrMultiplier = input.float(1.0, title = 'ATR Multiplier for Stop-Loss', minval = 0.5)
+
+fastMA = ta.sma(close, fastLength)
+slowMA = ta.sma(close, slowLength)
+
+plot(fastMA, color = color.blue, title = 'Fast MA')
+plot(slowMA, color = color.red, title = 'Slow MA')
+
+longCondition = ta.crossover(fastMA, slowMA)
+shortCondition = ta.crossunder(fastMA, slowMA)
+
+atr = ta.atr(atrLength)
+longSL = close - atr * atrMultiplier
+longTP1 = close + atr * atrMultiplier * riskReward / 3
+longTP2 = close + atr * atrMultiplier * riskReward * 2 / 3
+longTP3 = close + atr * atrMultiplier * riskReward
+
+shortSL = close + atr * atrMultiplier
+shortTP1 = close - atr * atrMultiplier * riskReward / 3
+shortTP2 = close - atr * atrMultiplier * riskReward * 2 / 3
+shortTP3 = close - atr * atrMultiplier * riskReward
+
+var line slLine = na
+var line tp1Line = na
+var line tp2Line = na
+var line tp3Line = na
+var line entryLine = na
+
+if longCondition
+    line.delete(slLine)
+    line.delete(tp1Line)
+    line.delete(tp2Line)
+    line.delete(tp3Line)
+    line.delete(entryLine)
+
+    slLine := line.new(x1 = bar_index, y1 = longSL, x2 = bar_index + 1, y2 = longSL, color = color.red, width = 1, extend = extend.right, style = line.style_dotted)
+    tp1Line := line.new(x1 = bar_index, y1 = longTP1, x2 = bar_index + 1, y2 = longTP1, color = color.green, width = 1, extend = extend.right, style = line.style_dotted)
+    tp2Line := line.new(x1 = bar_index, y1 = longTP2, x2 = bar_index + 1, y2 = longTP2, color = color.green, width = 1, extend = extend.right, style = line.style_dotted)
+    tp3Line := line.new(x1 = bar_index, y1 = longTP3, x2 = bar_index + 1, y2 = longTP3, color = color.green, width = 1, extend = extend.right, style = line.style_dotted)
+    entryLine := line.new(x1 = bar_index, y1 = close, x2 = bar_index + 1, y2 = close, color = color.gray, width = 1, extend = extend.right, style = line.style_solid)
+
+    label.new(bar_index + 1, longSL, 'SL', color = color.red, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, longTP1, 'TP1', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, longTP2, 'TP2', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, longTP3, 'TP3', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+
+if shortCondition
+    line.delete(slLine)
+    line.delete(tp1Line)
+    line.delete(tp2Line)
+    line.delete(tp3Line)
+    line.delete(entryLine)
+
+    slLine := line.new(x1 = bar_index, y1 = shortSL, x2 = bar_index + 1, y2 = shortSL, color = color.red, width = 1, extend = extend.right, style = line.style_dotted)
+    tp1Line := line.new(x1 = bar_index, y1 = shortTP1, x2 = bar_index + 1, y2 = shortTP1, color = color.green, width = 1, extend = extend.right, style = line.style_dotted)
+    tp2Line := line.new(x1 = bar_index, y1 = shortTP2, x2 = bar_index + 1, y2 = shortTP2, color = color.green, width = 1, extend = extend.right, style = line.style_dotted)
+    tp3Line := line.new(x1 = bar_index, y1 = shortTP3, x2 = bar_index + 1, y2 = shortTP3, color = color.green, width = 1, extend = extend.right, style = line.style_dotted)
+    entryLine := line.new(x1 = bar_index, y1 = close, x2 = bar_index + 1, y2 = close, color = color.gray, width = 1, extend = extend.right, style = line.style_solid)
+
+    label.new(bar_index + 1, shortSL, 'SL', color = color.red, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, shortTP1, 'TP1', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, shortTP2, 'TP2', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, shortTP3, 'TP3', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+
+alertcondition(longCondition, title = 'Buy Alert', message = 'Buy Signal: Enter now!')
+alertcondition(shortCondition, title = 'Sell Alert', message = 'Sell Signal: Enter now!')
