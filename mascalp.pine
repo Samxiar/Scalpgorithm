@@ -1,10 +1,10 @@
 //@version=6
 indicator('MA Crossover Strategy By SamFx', overlay = true)
 
-fastLength = input.int(9, title = 'Fast MA Length', minval = 1)
+fastLength = input.int(10, title = 'Fast MA Length', minval = 1)
 slowLength = input.int(21, title = 'Slow MA Length', minval = 1)
 
-riskReward = 2.0
+riskReward = 2.3
 atrLength = input.int(14, title = 'ATR Length for SL/TP')
 atrMultiplier = input.float(1.0, title = 'ATR Multiplier for Stop-Loss', minval = 0.5)
 
@@ -69,6 +69,50 @@ if shortCondition
     label.new(bar_index + 1, shortTP1, 'TP1', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
     label.new(bar_index + 1, shortTP2, 'TP2', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
     label.new(bar_index + 1, shortTP3, 'TP3', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+
+
+if longCondition
+    line.delete(slLine)
+    line.delete(tp1Line)
+    line.delete(tp2Line)
+    line.delete(tp3Line)
+    line.delete(entryLine)
+
+    slLine := line.new(x1 = bar_index, y1 = longSL, x2 = bar_index + 1, y2 = longSL, color = color.red, width = 1, extend = extend.right, style = line.style_dotted)
+    tp1Line := line.new(x1 = bar_index, y1 = longTP1, x2 = bar_index + 1, y2 = longTP1, color = color.green, width = 1, extend = extend.right, style = line.style_dotted)
+    tp2Line := line.new(x1 = bar_index, y1 = longTP2, x2 = bar_index + 1, y2 = longTP2, color = color.green, width = 1, extend = extend.right, style = line.style_dotted)
+    tp3Line := line.new(x1 = bar_index, y1 = longTP3, x2 = bar_index + 1, y2 = longTP3, color = color.green, width = 1, extend = extend.right, style = line.style_dotted)
+    entryLine := line.new(x1 = bar_index, y1 = close, x2 = bar_index + 1, y2 = close, color = color.gray, width = 1, extend = extend.right, style = line.style_solid)
+
+    label.new(bar_index + 1, longSL, 'SL', color = color.red, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, longTP1, 'TP1', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, longTP2, 'TP2', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, longTP3, 'TP3', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, close, ' ---', color = color.blue, textcolor = color.white, size = size.small, style = label.style_none)
+
+if shortCondition
+    line.delete(slLine)
+    line.delete(tp1Line)
+    line.delete(tp2Line)
+    line.delete(tp3Line)
+    line.delete(entryLine)
+
+    slLine := line.new(x1 = bar_index, y1 = shortSL, x2 = bar_index + 1, y2 = shortSL, color = color.red, width = 1, extend = extend.right, style = line.style_dotted)
+    tp1Line := line.new(x1 = bar_index, y1 = shortTP1, x2 = bar_index + 1, y2 = shortTP1, color = color.green, width = 1, extend = extend.right, style = line.style_dotted)
+    tp2Line := line.new(x1 = bar_index, y1 = shortTP2, x2 = bar_index + 1, y2 = shortTP2, color = color.green, width = 1, extend = extend.right, style = line.style_dotted)
+    tp3Line := line.new(x1 = bar_index, y1 = shortTP3, x2 = bar_index + 1, y2 = shortTP3, color = color.green, width = 1, extend = extend.right, style = line.style_dotted)
+    entryLine := line.new(x1 = bar_index, y1 = close, x2 = bar_index + 1, y2 = close, color = color.gray, width = 1, extend = extend.right, style = line.style_solid)
+
+    label.new(bar_index + 1, shortSL, 'SL', color = color.red, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, shortTP1, 'TP1', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, shortTP2, 'TP2', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, shortTP3, 'TP3', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, close, '---', color = color.blue, textcolor = color.white, size = size.small, style = label.style_none)
+
+
+// Plotting red cross shapes for crossover and crossunder
+plotshape(series = longCondition, location = location.belowbar, color = color.red, style = shape.cross, size = size.small)
+plotshape(series = shortCondition, location = location.abovebar, color = color.red, style = shape.cross, size = size.small)
 
 alertcondition(longCondition, title = 'Buy Alert', message = 'Buy Signal: Enter now!')
 alertcondition(shortCondition, title = 'Sell Alert', message = 'Sell Signal: Enter now!')
