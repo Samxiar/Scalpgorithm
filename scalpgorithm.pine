@@ -1,29 +1,34 @@
-//@version=5
-indicator("Scalpgorithm By SamFx", overlay=true)
+//@version=6
+indicator('Scalpgorithm By SamFx', overlay = true)
 
 // Inputs
 length = input.int(14, 'Swing Detection Lookback')
-mult = input.float(1., 'Slope', minval=0, step=.1)
-calcMethod = input.string('Atr', 'Slope Calculation Method', options=['Atr', 'Stdev', 'Linreg'])
+mult = input.float(1., 'Slope', minval = 0, step = .1)
+calcMethod = input.string('Atr', 'Slope Calculation Method', options = ['Atr', 'Stdev', 'Linreg'])
 backpaint = input(true)
 
 // Trendline Color Inputs
-upCss = input.color(color.teal, 'Up Trendline Color', group='Style')
-dnCss = input.color(color.red, 'Down Trendline Color', group='Style')
-showExt = input(true, 'Show Extended Lines')
+upCss = input.color(color.teal, 'Up Trendline Color', group = 'Style')
+dnCss = input.color(color.red, 'Down Trendline Color', group = 'Style')
+showExt = input(true)
+
+// ATR Inputs for Stop Loss and Take Profit
+atrLength = input.int(14, title = 'ATR Length for SL/TP', minval = 1)
+atrMultiplier = input.float(1.0, title = 'ATR Multiplier for Stop-Loss', minval = 0.5)
+riskReward = input.float(3.0, title = 'Risk-Reward Multiplier')
 
 // Multi-Timeframe Inputs
-tf_1min = input.timeframe('1', "1 Minute")
-tf_5min = input.timeframe('5', "5 Minute")
-tf_15min = input.timeframe('15', "15 Minute")
-tf_30min = input.timeframe('30', "30 Minute")
-tf_1hr = input.timeframe('60', "1 Hour")
+tf_1min = input.timeframe('1', '1 Minute')
+tf_5min = input.timeframe('5', '5 Minute')
+tf_15min = input.timeframe('15', '15 Minute')
+tf_30min = input.timeframe('30', '30 Minute')
+tf_1hr = input.timeframe('60', '1 Hour')
 
 // Variables
-var upper = 0.
-var lower = 0.
-var slope_ph = 0.
-var slope_pl = 0.
+var float upper = na
+var float lower = na
+var slope_ph = 0.0
+var slope_pl = 0.0
 var float upos = na
 var float dnos = na
 offset = backpaint ? length : 0
@@ -32,124 +37,187 @@ src = close
 
 // Calculate slope
 slope = switch calcMethod
-    'Atr'    => ta.atr(length) / length * mult
-    'Stdev'  => ta.stdev(src, length) / length * mult
+    'Atr' => ta.atr(length) / length * mult
+    'Stdev' => ta.stdev(src, length) / length * mult
     'Linreg' => math.abs(ta.sma(src * n, length) - ta.sma(src, length) * ta.sma(n, length)) / ta.variance(n, length) / 2 * mult
 
 // Pivot points and slopes
 ph = ta.pivothigh(length, length)
 pl = ta.pivotlow(length, length)
-slope_ph := ph ? slope : slope_ph
-slope_pl := pl ? slope : slope_pl
-upper := ph ? ph : upper - slope_ph
-lower := pl ? pl : lower + slope_pl
+slope_ph := bool(ph) ? slope : slope_ph
+slope_pl := bool(pl) ? slope : slope_pl
+upper := bool(ph) ? ph : upper - slope_ph
+lower := bool(pl) ? pl : lower + slope_pl
 
 // Trendline and signals
-upos := ph ? 0 : close > upper - slope_ph * length ? 1 : upos
-dnos := pl ? 0 : close < lower + slope_pl * length ? 1 : dnos
+upos := bool(ph) ? 0 : close > upper - slope_ph * length ? 1 : upos
+dnos := bool(pl) ? 0 : close < lower + slope_pl * length ? 1 : dnos
 
-var uptl = line.new(na, na, na, na, color=upCss, style=line.style_dashed, extend=extend.right)
-var dntl = line.new(na, na, na, na, color=dnCss, style=line.style_dashed, extend=extend.right)
+var line uptl = line.new(na, na, na, na, color = upCss, style = line.style_dashed, extend = extend.right)
+var line dntl = line.new(na, na, na, na, color = dnCss, style = line.style_dashed, extend = extend.right)
 
 // Draw extended lines
-if ph and showExt
-    uptl.set_xy1(n-offset, backpaint ? ph : upper - slope_ph * length)
-    uptl.set_xy2(n-offset+1, backpaint ? ph - slope : upper - slope_ph * (length+1))
+if bool(ph) and showExt
+    uptl.set_xy1(n - offset, backpaint ? ph : upper - slope_ph * length)
+    uptl.set_xy2(n - offset + 1, backpaint ? ph - slope : upper - slope_ph * (length + 1))
 
-if pl and showExt
-    dntl.set_xy1(n-offset, backpaint ? pl : lower + slope_pl * length)
-    dntl.set_xy2(n-offset+1, backpaint ? pl + slope : lower + slope_pl * (length+1))
+if bool(pl) and showExt
+    dntl.set_xy1(n - offset, backpaint ? pl : lower + slope_pl * length)
+    dntl.set_xy2(n - offset + 1, backpaint ? pl + slope : lower + slope_pl * (length + 1))
 
 // Plot trendlines and shapes
-plot(backpaint ? upper : upper - slope_ph * length, 'Upper', color=ph ? na : upCss, offset=-offset)
-plot(backpaint ? lower : lower + slope_pl * length, 'Lower', color=pl ? na : dnCss, offset=-offset)
-plotshape(upos > upos[1] ? low : na, "Upper Break", shape.labelup, location.absolute, upCss, text="B", textcolor=color.white, size=size.tiny)
-plotshape(dnos > dnos[1] ? high : na, "Lower Break", shape.labeldown, location.absolute, dnCss, text="B", textcolor=color.white, size=size.tiny)
+plot(backpaint ? upper : upper - slope_ph * length, 'Upper', color = bool(ph) ? na : upCss, offset = -offset)
+plot(backpaint ? lower : lower + slope_pl * length, 'Lower', color = bool(pl) ? na : dnCss, offset = -offset)
+plotshape(upos > upos[1] ? low : na, 'Upper Break', shape.labelup, location.absolute, upCss, text = 'B', textcolor = color.white, size = size.tiny)
+plotshape(dnos > dnos[1] ? high : na, 'Lower Break', shape.labeldown, location.absolute, dnCss, text = 'B', textcolor = color.white, size = size.tiny)
 
 // Alert conditions
 alertcondition(upos > upos[1], 'Upward Breakout', 'Price broke the down-trendline upward')
 alertcondition(dnos > dnos[1], 'Downward Breakout', 'Price broke the up-trendline downward')
 
-// Multi-Timeframe Signals and Table
-var table data_table = table.new(position=position.top_right, columns=7, rows=7, bgcolor=chart.bg_color, border_width=1, border_color=chart.fg_color)
-getSignal(tf) => request.security(syminfo.tickerid, tf, upos - dnos)
+// ATR Calculation for Stop Loss/Take Profit
+atr = ta.atr(atrLength)
 
-// RSI and MACD Calculation
+// New variables for SL and TP lines
+var line sl_line = na
+var line tp1_line = na
+var line tp2_line = na
+var line tp3_line = na
+var line entry_line = na
+
+// Entry Logic and Plotting Lines/Labels
+if upos > upos[1] // Upward breakout
+    // Clear existing lines
+    line.delete(entry_line)
+    line.delete(sl_line)
+    line.delete(tp1_line)
+    line.delete(tp2_line)
+    line.delete(tp3_line)
+
+    // Entry line at the breakout price
+    entry_price = close // Use the current price at breakout
+    entry_line := line.new(bar_index, entry_price, bar_index + 1, entry_price, color = color.gray, width = 2, extend = extend.right)
+
+    // Stop Loss and Take Profit lines
+    sl_line := line.new(bar_index, entry_price - atr * atrMultiplier, bar_index + 1, entry_price - atr * atrMultiplier, color = color.red, style = line.style_dotted, extend = extend.right)
+    tp1_line := line.new(bar_index, entry_price + atr * atrMultiplier * riskReward / 3, bar_index + 1, entry_price + atr * atrMultiplier * riskReward / 3, color = color.green, style = line.style_dotted, extend = extend.right)
+    tp2_line := line.new(bar_index, entry_price + atr * atrMultiplier * riskReward * 2 / 3, bar_index + 1, entry_price + atr * atrMultiplier * riskReward * 2 / 3, color = color.green, style = line.style_dotted, extend = extend.right)
+    tp3_line := line.new(bar_index, entry_price + atr * atrMultiplier * riskReward, bar_index + 1, entry_price + atr * atrMultiplier * riskReward, color = color.green, style = line.style_dotted, extend = extend.right)
+
+    label.new(bar_index + 1, entry_price - atr * atrMultiplier, 'SL', color = color.red, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, entry_price + atr * atrMultiplier * riskReward / 3, 'TP1', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, entry_price + atr * atrMultiplier * riskReward * 2 / 3, 'TP2', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, entry_price + atr * atrMultiplier * riskReward, 'TP3', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+
+if dnos > dnos[1] // Downward breakout
+    // Clear existing lines
+    line.delete(entry_line)
+    line.delete(sl_line)
+    line.delete(tp1_line)
+    line.delete(tp2_line)
+    line.delete(tp3_line)
+
+    // Entry line at breakout price
+    entry_price = close // Use the current price at breakout
+    entry_line := line.new(bar_index, entry_price, bar_index + 1, entry_price, color = color.gray, width = 2, extend = extend.right)
+
+    // Stop Loss and Take Profit lines
+    sl_line := line.new(bar_index, entry_price + atr * atrMultiplier, bar_index + 1, entry_price + atr * atrMultiplier, color = color.red, style = line.style_dotted, extend = extend.right)
+    tp1_line := line.new(bar_index, entry_price - atr * atrMultiplier * riskReward / 3, bar_index + 1, entry_price - atr * atrMultiplier * riskReward / 3, color = color.green, style = line.style_dotted, extend = extend.right)
+    tp2_line := line.new(bar_index, entry_price - atr * atrMultiplier * riskReward * 2 / 3, bar_index + 1, entry_price - atr * atrMultiplier * riskReward * 2 / 3, color = color.green, style = line.style_dotted, extend = extend.right)
+    tp3_line := line.new(bar_index, entry_price - atr * atrMultiplier * riskReward, bar_index + 1, entry_price - atr * atrMultiplier * riskReward, color = color.green, style = line.style_dotted, extend = extend.right)
+
+    label.new(bar_index + 1, entry_price + atr * atrMultiplier, 'SL', color = color.red, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, entry_price - atr * atrMultiplier * riskReward / 3, 'TP1', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, entry_price - atr * atrMultiplier * riskReward * 2 / 3, 'TP2', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, entry_price - atr * atrMultiplier * riskReward, 'TP3', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+
+// Multi-Timeframe Signals and Table
+var table data_table = table.new(position = position.top_right, columns = 7, rows = 7, bgcolor = chart.bg_color, border_width = 1, border_color = chart.fg_color)
+getSignal(tf) =>
+    request.security(syminfo.tickerid, tf, upos - dnos)
+
+// RSI Calculation
 rsi_value(tf) =>
     rsi_val = request.security(syminfo.tickerid, tf, ta.rsi(close, 14))
     na(rsi_val) ? 0 : rsi_val
 
-macd_value(tf) =>
-    [macdLine, signalLine, _] = request.security(syminfo.tickerid, tf, ta.macd(close, 12, 26, 9))
-    macd = macdLine - signalLine
-    na(macd) ? 0 : macd
+// Session Definitions
+session_sydney = hour >= 22 or hour < 7
+session_tokyo = hour >= 7 and hour < 16
+session_asian = hour >= 0 and hour < 9
+session_london = hour >= 9 and hour < 17
+session_ny = hour >= 17 and hour < 24
 
-session_sydney = (hour >= 22 or hour < 7)
-session_tokyo = (hour >= 7 and hour < 16)
-session_asian = (hour >= 0 and hour < 9)
-session_london = (hour >= 9 and hour < 17)
-session_ny = (hour >= 17 and hour < 24)
-
-getSessionColor(session_condition) => session_condition ? color.new(color.green, 70) : color.new(color.gray, 70)
+// Functions to Get Colors
+getSessionColor(session_condition) =>
+    session_condition ? color.new(color.green, 70) : color.new(color.gray, 70)
 
 getRSIColor(rsi) =>
-    rsi > 50 ? color.new(color.green, 70) : rsi < 50 ? color.new(color.red, 70): color.red
+    rsi > 50 ? color.new(color.green, 70) : rsi < 50 ? color.new(color.red, 70) : color.gray
 
-getMACDColor(macd) =>
-    macd > 0 ? color.new(color.green, 70) : macd < 50 ? color.new(color.red, 70): color.red
+// Volume Classification
+volume_classification() =>
+    avgVolume = ta.sma(volume, 20)
+    if volume > avgVolume * 2
+        'Very High'
+    else if volume > avgVolume
+        'High'
+    else if volume < avgVolume * 0.5
+        'Very Low'
+    else if volume < avgVolume * 0.8
+        'Low'
+    else
+        'Wait'
 
-
+// Populate Table with Signals
 if barstate.islast
-    // Timeframe 1min
+    // Timeframe 1 min
     tf_signal_1min = getSignal(tf_1min)
     rsi_1min = rsi_value(tf_1min)
-    macd_1min = macd_value(tf_1min)
-    table.cell(data_table, 0, 1, text="1 Min", text_halign=text.align_center, text_color=color.white)
-    table.cell(data_table, 1, 1, text=tf_signal_1min > 0 ? "LONG" : tf_signal_1min < 0 ? "SHORT" : "Wait", bgcolor=tf_signal_1min > 0 ? color.new(upCss, 70) : tf_signal_1min < 0 ? color.new(dnCss, 70) : na, text_halign=text.align_center, text_color=color.white)
-    table.cell(data_table, 2, 1, text="RSI: " + str.tostring(rsi_1min, "#.##"), bgcolor=getRSIColor(rsi_1min), text_halign=text.align_center, text_color=color.white)
-    table.cell(data_table, 3, 1, text="MACD: " + str.tostring(macd_1min, "#.##"), bgcolor=getMACDColor(macd_1min), text_halign=text.align_center, text_color=color.white)
-    table.cell(data_table, 4, 1, text="Sydney", text_halign=text.align_center, bgcolor=getSessionColor(session_sydney), text_color=color.white)
+    vol_1min = volume_classification()
+    table.cell(data_table, 0, 1, text = '1 Min', text_halign = text.align_center, text_color = color.white)
+    table.cell(data_table, 1, 1, text = tf_signal_1min > 0 ? 'LONG' : tf_signal_1min < 0 ? 'SHORT' : 'Wait', bgcolor = tf_signal_1min > 0 ? color.new(upCss, 70) : tf_signal_1min < 0 ? color.new(dnCss, 70) : na, text_halign = text.align_center, text_color = color.white)
+    table.cell(data_table, 2, 1, text = 'RSI: ' + str.tostring(rsi_1min, '#.##'), bgcolor = getRSIColor(rsi_1min), text_halign = text.align_center, text_color = color.white)
+    table.cell(data_table, 3, 1, text = 'Volume: ' + vol_1min, bgcolor = color.gray, text_halign = text.align_center, text_color = color.white)
+    table.cell(data_table, 4, 1, text = 'Sydney', text_halign = text.align_center, bgcolor = getSessionColor(session_sydney), text_color = color.white)
 
-    // Timeframe 5min
+    // Timeframe 5 min
     tf_signal_5min = getSignal(tf_5min)
     rsi_5min = rsi_value(tf_5min)
-    macd_5min = macd_value(tf_5min)
-    table.cell(data_table, 0, 2, text="5 Min", text_halign=text.align_center, text_color=color.white)
-    table.cell(data_table, 1, 2, text=tf_signal_5min > 0 ? "LONG" : tf_signal_5min < 0 ? "SHORT" : "WAIT", bgcolor=tf_signal_5min > 0 ? color.new(upCss, 70) : tf_signal_5min < 0 ? color.new(dnCss, 70) : na, text_halign=text.align_center, text_color=color.white)
-    table.cell(data_table, 2, 2, text="RSI: " + str.tostring(rsi_5min, "#.##"), bgcolor=getRSIColor(rsi_5min), text_halign=text.align_center, text_color=color.white)
-    table.cell(data_table, 3, 2, text="MACD: " + str.tostring(macd_5min, "#.##"), bgcolor=getMACDColor(macd_5min), text_halign=text.align_center, text_color=color.white)
-    table.cell(data_table, 4, 2, text="Tokyo", text_halign=text.align_center, bgcolor=getSessionColor(session_tokyo), text_color=color.white)
+    vol_5min = volume_classification()
+    table.cell(data_table, 0, 2, text = '5 Min', text_halign = text.align_center, text_color = color.white)
+    table.cell(data_table, 1, 2, text = tf_signal_5min > 0 ? 'LONG' : tf_signal_5min < 0 ? 'SHORT' : 'WAIT', bgcolor = tf_signal_5min > 0 ? color.new(upCss, 70) : tf_signal_5min < 0 ? color.new(dnCss, 70) : na, text_halign = text.align_center, text_color = color.white)
+    table.cell(data_table, 2, 2, text = 'RSI: ' + str.tostring(rsi_5min, '#.##'), bgcolor = getRSIColor(rsi_5min), text_halign = text.align_center, text_color = color.white)
+    table.cell(data_table, 3, 2, text = 'Volume: ' + vol_5min, bgcolor = color.gray, text_halign = text.align_center, text_color = color.white)
+    table.cell(data_table, 4, 2, text = 'Tokyo', text_halign = text.align_center, bgcolor = getSessionColor(session_tokyo), text_color = color.white)
 
-    // Timeframe 15min
+    // Timeframe 15 min
     tf_signal_15min = getSignal(tf_15min)
     rsi_15min = rsi_value(tf_15min)
-    macd_15min = macd_value(tf_15min)
-    table.cell(data_table, 0, 3, text="15 Min", text_halign=text.align_center, text_color=color.white)
-    table.cell(data_table, 1, 3, text=tf_signal_15min > 0 ? "LONG" : tf_signal_15min < 0 ? "SHORT" : "WAIT", bgcolor=tf_signal_15min > 0 ? color.new(upCss, 70) : tf_signal_15min < 0 ? color.new(dnCss, 70) : na, text_halign=text.align_center, text_color=color.white)
-    table.cell(data_table, 2, 3, text="RSI: " + str.tostring(rsi_15min, "#.##"), bgcolor=getRSIColor(rsi_15min), text_halign=text.align_center, text_color=color.white)
-    table.cell(data_table, 3, 3, text="MACD: " + str.tostring(macd_15min, "#.##"), bgcolor=getMACDColor(macd_15min), text_halign=text.align_center, text_color=color.white)
-    table.cell(data_table, 4, 3, text="Asian", text_halign=text.align_center, bgcolor=getSessionColor(session_asian), text_color=color.white)
+    vol_15min = volume_classification()
+    table.cell(data_table, 0, 3, text = '15 Min', text_halign = text.align_center, text_color = color.white)
+    table.cell(data_table, 1, 3, text = tf_signal_15min > 0 ? 'LONG' : tf_signal_15min < 0 ? 'SHORT' : 'WAIT', bgcolor = tf_signal_15min > 0 ? color.new(upCss, 70) : tf_signal_15min < 0 ? color.new(dnCss, 70) : na, text_halign = text.align_center, text_color = color.white)
+    table.cell(data_table, 2, 3, text = 'RSI: ' + str.tostring(rsi_15min, '#.##'), bgcolor = getRSIColor(rsi_15min), text_halign = text.align_center, text_color = color.white)
+    table.cell(data_table, 3, 3, text = 'Volume: ' + vol_15min, bgcolor = color.gray, text_halign = text.align_center, text_color = color.white)
+    table.cell(data_table, 4, 3, text = 'Asian', text_halign = text.align_center, bgcolor = getSessionColor(session_asian), text_color = color.white)
 
-    // Timeframe 30min
+    // Timeframe 30 min
     tf_signal_30min = getSignal(tf_30min)
     rsi_30min = rsi_value(tf_30min)
-    macd_30min = macd_value(tf_30min)
-    table.cell(data_table, 0, 4, text="30 Min", text_halign=text.align_center, text_color=color.white)
-    table.cell(data_table, 1, 4, text=tf_signal_30min > 0 ? "LONG" : tf_signal_30min < 0 ? "SHORT" : "WAIT", bgcolor=tf_signal_30min > 0 ? color.new(upCss, 70) : tf_signal_30min < 0 ? color.new(dnCss, 70) : na, text_halign=text.align_center, text_color=color.white)
-    table.cell(data_table, 2, 4, text="RSI: " + str.tostring(rsi_30min, "#.##"), bgcolor=getRSIColor(rsi_30min), text_halign=text.align_center, text_color=color.white)
-    table.cell(data_table, 3, 4, text="MACD: " + str.tostring(macd_30min, "#.##"), bgcolor=getMACDColor(macd_30min), text_halign=text.align_center, text_color=color.white)
-    table.cell(data_table, 4, 4, text="London", text_halign=text.align_center, bgcolor=getSessionColor(session_london), text_color=color.white)
+    vol_30min = volume_classification()
+    table.cell(data_table, 0, 4, text = '30 Min', text_halign = text.align_center, text_color = color.white)
+    table.cell(data_table, 1, 4, text = tf_signal_30min > 0 ? 'LONG' : tf_signal_30min < 0 ? 'SHORT' : 'WAIT', bgcolor = tf_signal_30min > 0 ? color.new(upCss, 70) : tf_signal_30min < 0 ? color.new(dnCss, 70) : na, text_halign = text.align_center, text_color = color.white)
+    table.cell(data_table, 2, 4, text = 'RSI: ' + str.tostring(rsi_30min, '#.##'), bgcolor = getRSIColor(rsi_30min), text_halign = text.align_center, text_color = color.white)
+    table.cell(data_table, 3, 4, text = 'Volume: ' + vol_30min, bgcolor = color.gray, text_halign = text.align_center, text_color = color.white)
+    table.cell(data_table, 4, 4, text = 'London', text_halign = text.align_center, bgcolor = getSessionColor(session_london), text_color = color.white)
 
-    // Timeframe 1hr
+    // Timeframe 1 hr
     tf_signal_1hr = getSignal(tf_1hr)
     rsi_1hr = rsi_value(tf_1hr)
-    macd_1hr = macd_value(tf_1hr)
-    table.cell(data_table, 0, 5, text="1 Hr", text_halign=text.align_center, text_color=color.white)
-    table.cell(data_table, 1, 5, text=tf_signal_1hr > 0 ? "LONG" : tf_signal_1hr < 0 ? "SHORT" : "WAIT", bgcolor=tf_signal_1hr > 0 ? color.new(upCss, 70) : tf_signal_1hr < 0 ? color.new(dnCss, 70) : na, text_halign=text.align_center, text_color=color.white)
-    table.cell(data_table, 2, 5, text="RSI: " + str.tostring(rsi_1hr, "#.##"), bgcolor=getRSIColor(rsi_1hr), text_halign=text.align_center, text_color=color.white)
-    table.cell(data_table, 3, 5, text="MACD: " + str.tostring(macd_1hr, "#.##"), bgcolor=getMACDColor(macd_1hr), text_halign=text.align_center, text_color=color.white)
-    table.cell(data_table, 4, 5, text="New York", text_halign=text.align_center, bgcolor=getSessionColor(session_ny), text_color=color.white)
-
-// Alerts
-alertcondition(upos > upos[1], 'Multi-Timeframe Upward Breakout', 'Price broke the down-trendline upward on multiple timeframes')
-alertcondition(dnos > dnos[1], 'Multi-Timeframe Downward Breakout', 'Price broke the up-trendline downward on multiple timeframes')
+    vol_1hr = volume_classification()
+    table.cell(data_table, 0, 5, text = '1 Hour', text_halign = text.align_center, text_color = color.white)
+    table.cell(data_table, 1, 5, text = tf_signal_1hr > 0 ? 'LONG' : tf_signal_1hr < 0 ? 'SHORT' : 'WAIT', bgcolor = tf_signal_1hr > 0 ? color.new(upCss, 70) : tf_signal_1hr < 0 ? color.new(dnCss, 70) : na, text_halign = text.align_center, text_color = color.white)
+    table.cell(data_table, 2, 5, text = 'RSI: ' + str.tostring(rsi_1hr, '#.##'), bgcolor = getRSIColor(rsi_1hr), text_halign = text.align_center, text_color = color.white)
+    table.cell(data_table, 3, 5, text = 'Volume: ' + vol_1hr, bgcolor = color.gray, text_halign = text.align_center, text_color = color.white)
+    table.cell(data_table, 4, 5, text = 'New York', text_halign = text.align_center, bgcolor = getSessionColor(session_ny), text_color = color.white)
