@@ -8,14 +8,18 @@ calcMethod = input.string('Atr', 'Slope Calculation Method', options = ['Atr', '
 backpaint = input(true)
 
 // Trendline Color Inputs
-upCss = input.color(color.teal, 'Up Trendline Color', group = 'Style')
-dnCss = input.color(color.red, 'Down Trendline Color', group = 'Style')
+upCss = input.color(color.blue, 'Up Trendline Color', group = 'Style')
+dnCss = input.color(color.gray, 'Down Trendline Color', group = 'Style')
 showExt = input(true)
 
 // ATR Inputs for Stop Loss and Take Profit
 atrLength = input.int(14, title = 'ATR Length for SL/TP', minval = 1)
-atrMultiplier = input.float(1.0, title = 'ATR Multiplier for Stop-Loss', minval = 0.5)
-riskReward = input.float(3.0, title = 'Risk-Reward Multiplier')
+atrMultiplier = input.float(2.0, title = 'ATR Multiplier for Stop-Loss', minval = 0.5)
+riskReward = input.float(2.0, title = 'Risk-Reward Multiplier')
+
+// Moving Average Inputs
+fastMA = input.int(9, title='Fast MA', minval=1)
+slowMA = input.int(21, title='Slow MA', minval=1)
 
 // Multi-Timeframe Inputs
 tf_1min = input.timeframe('1', '1 Minute')
@@ -95,7 +99,7 @@ if upos > upos[1] // Upward breakout
     line.delete(tp3_line)
 
     // Entry line at the breakout price
-    entry_price = close // Use the current price at breakout
+    entry_price = upper - slope_ph * length // Entry at breakout of upper slope
     entry_line := line.new(bar_index, entry_price, bar_index + 1, entry_price, color = color.gray, width = 2, extend = extend.right)
 
     // Stop Loss and Take Profit lines
@@ -118,7 +122,7 @@ if dnos > dnos[1] // Downward breakout
     line.delete(tp3_line)
 
     // Entry line at breakout price
-    entry_price = close // Use the current price at breakout
+    entry_price = lower + slope_pl * length // Entry at breakout of lower slope
     entry_line := line.new(bar_index, entry_price, bar_index + 1, entry_price, color = color.gray, width = 2, extend = extend.right)
 
     // Stop Loss and Take Profit lines
@@ -131,6 +135,33 @@ if dnos > dnos[1] // Downward breakout
     label.new(bar_index + 1, entry_price - atr * atrMultiplier * riskReward / 3, 'TP1', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
     label.new(bar_index + 1, entry_price - atr * atrMultiplier * riskReward * 2 / 3, 'TP2', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
     label.new(bar_index + 1, entry_price - atr * atrMultiplier * riskReward, 'TP3', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+
+// Moving Averages for Exit Logic
+fastMAValue = ta.sma(close, fastMA)
+slowMAValue = ta.sma(close, slowMA)
+
+// Exit Logic for Moving Average Cross
+exitLong = ta.crossover(fastMAValue, slowMAValue)
+exitShort = ta.crossunder(fastMAValue, slowMAValue)
+
+// Draw shapes for exit signals
+plotshape(exitLong and upos > upos[1], style=shape.cross, location=location.abovebar, color=color.white, size=size.small)
+plotshape(exitShort and dnos > dnos[1], style=shape.cross, location=location.belowbar, color=color.white, size=size.small)
+
+// Clear positions on exit
+if exitLong and upos > upos[1] // If in long position and crossover occurs
+    line.delete(entry_line)
+    line.delete(sl_line)
+    line.delete(tp1_line)
+    line.delete(tp2_line)
+    line.delete(tp3_line)
+
+if exitShort and dnos > dnos[1] // If in short position and crossunder occurs
+    line.delete(entry_line)
+    line.delete(sl_line)
+    line.delete(tp1_line)
+    line.delete(tp2_line)
+    line.delete(tp3_line)
 
 // Multi-Timeframe Signals and Table
 var table data_table = table.new(position = position.top_right, columns = 7, rows = 7, bgcolor = chart.bg_color, border_width = 1, border_color = chart.fg_color)
