@@ -222,7 +222,9 @@ scaled_vwma = ((avg_vwma - min_value) / (max_value - min_value)) * 9 + 1
 scaled_vwma := math.min(math.max(scaled_vwma, 1), 10)
 
 // Set background color based on scaled_vwma
-bg_color = scaled_vwma >= 8 ? color.new(color.green, 70) :scaled_vwma >= 5 ? color.new(color.orange, 70) :color.new(color.red, 70)
+bg_color = scaled_vwma >= 8 ? color.new(color.green, 70) :
+          scaled_vwma >= 5 ? color.new(color.orange, 70) :
+          color.new(color.red, 70)
 
 // Populate Table with Signals
 if barstate.islast
@@ -270,6 +272,8 @@ if barstate.islast
     tf_signal_1hr = getSignal(tf_1hr)
     rsi_1hr = rsi_value(tf_1hr)
     table.cell(data_table, 0, 5, text = '1 Hour', text_halign = text.align_center, text_color = color.white)
-    table.cell(data_table, 1, 5, text = avg_vwma > 0 ? 'LONG' : avg_vwma < 0 ? 'SHORT' : 'WAIT', bgcolor = avg_vwma > 0 ? color.new(color.green, 70) : avg_vwma < 0 ? color.new(color.red, 70) : color.new(color.gray, 70),text_halign = text.align_center, text_color = color.white)
+    table.cell(data_table, 1, 5, text = avg_vwma > 0 ? 'LONG' : avg_vwma < 0 ? 'SHORT' : 'WAIT', 
+               bgcolor = avg_vwma > 0 ? color.new(color.green, 70) : avg_vwma < 0 ? color.new(color.red, 70) : color.new(color.gray, 70),
+               text_halign = text.align_center, text_color = color.white)
     table.cell(data_table, 2, 5, text = 'RSI: ' + str.tostring(rsi_1hr, '#.##'), bgcolor = getRSIColor(rsi_1hr), text_halign = text.align_center, text_color = color.white)
-    table.cell(data_table, 3, 5, text = '' + str.tostring(scaled_vwma, '#.##'), text_halign = text.align_center, text_color = color.white, bgcolor = bg_color)
+    table.cell(data_table, 3, 5, text = 'Volume: ' + str.tostring(scaled_vwma, '#.##'), text_halign = text.align_center, text_color = color.white, bgcolor = bg_color)
