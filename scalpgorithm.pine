@@ -14,8 +14,8 @@ showExt = input(true)
 
 // ATR Inputs for Stop Loss and Take Profit
 atrLength = input.int(14, title = 'ATR Length for SL/TP', minval = 1)
-atrMultiplier = input.float(2.0, title = 'ATR Multiplier for Stop-Loss', minval = 0.5)
-riskReward = input.float(2.0, title = 'Risk-Reward Multiplier')
+atrMultiplier = input.float(0.5, title = 'ATR Multiplier for Stop-Loss', minval = 0.5)
+riskReward = input.float(1.5, title = 'Risk-Reward Multiplier')
 
 // Moving Average Inputs
 fastMA = input.int(9, title='Fast MA', minval=1)
@@ -175,10 +175,9 @@ rsi_value(tf) =>
 
 // Session Definitions
 session_sydney = hour >= 22 or hour < 7
-session_tokyo = hour >= 7 and hour < 16
 session_asian = hour >= 0 and hour < 9
-session_london = hour >= 9 and hour < 17
-session_ny = hour >= 17 and hour < 24
+session_london = hour >= 8 and hour < 16
+session_ny = hour >= 13 and hour < 21
 
 // Functions to Get Colors
 getSessionColor(session_condition) =>
