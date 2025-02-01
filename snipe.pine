@@ -1,0 +1,86 @@
+//@version=6
+indicator('Snipe Algorithm by SamFx', overlay = true)
+
+// Define Timeframe EMAs
+ema_15m = ta.ema(close, 50) // Green EMA (50-period)
+ema_5m = ta.ema(close, 20) // Yellow EMA (20-period)
+ema_1m = ta.ema(close, 10) // Purple EMA (10-period)
+
+// Plot EMAs
+plot(ema_15m, color = color.green, title = 'EMA 50')
+plot(ema_5m, color = color.yellow, title = 'EMA 20')
+plot(ema_1m, color = color.purple, title = 'EMA 10')
+
+// ATR for SL/TP calculation
+atr = ta.atr(14)
+atrMultiplier = 1.5 // Multiplier for SL
+riskReward = 2 // Risk-Reward ratio
+
+// Crossover and Crossunder Conditions for Buy/Sell Signals
+longCondition = ta.crossover(ema_5m, ema_15m) // Buy Signal when EMA 20 crosses above EMA 50
+shortCondition = ta.crossunder(ema_5m, ema_15m) // Sell Signal when EMA 20 crosses below EMA 50
+
+// Plot Buy/Sell Signals
+plotshape(series = longCondition, location = location.belowbar, color = color.green, style = shape.labelup, title = 'Buy Signal', size = size.normal)
+plotshape(series = shortCondition, location = location.abovebar, color = color.red, style = shape.labeldown, title = 'Sell Signal', size = size.normal)
+
+// New variables for SL and TP lines
+var line sl_line = na
+var line tp1_line = na
+var line tp2_line = na
+var line tp3_line = na
+var line entry_line = na
+
+// Entry Logic and Plotting Lines/Labels when Buy Signal is triggered
+if longCondition
+    // Clear existing lines if any
+    line.delete(entry_line)
+    line.delete(sl_line)
+    line.delete(tp1_line)
+    line.delete(tp2_line)
+    line.delete(tp3_line)
+
+    // Entry at the crossover price
+    entry_price = close // Entry at the crossover price (EMA crossover)
+
+    // Plot Entry Line
+    entry_line := line.new(bar_index, entry_price, bar_index + 1, entry_price, color = color.gray, width = 2, extend = extend.right)
+
+    // Stop Loss and Take Profit levels
+    sl_line := line.new(bar_index, entry_price - atr * atrMultiplier, bar_index + 1, entry_price - atr * atrMultiplier, color = color.red, style = line.style_dotted, extend = extend.right)
+    tp1_line := line.new(bar_index, entry_price + atr * atrMultiplier * riskReward / 3, bar_index + 1, entry_price + atr * atrMultiplier * riskReward / 3, color = color.green, style = line.style_dotted, extend = extend.right)
+    tp2_line := line.new(bar_index, entry_price + atr * atrMultiplier * riskReward * 2 / 3, bar_index + 1, entry_price + atr * atrMultiplier * riskReward * 2 / 3, color = color.green, style = line.style_dotted, extend = extend.right)
+    tp3_line := line.new(bar_index, entry_price + atr * atrMultiplier * riskReward, bar_index + 1, entry_price + atr * atrMultiplier * riskReward, color = color.green, style = line.style_dotted, extend = extend.right)
+
+    // Labels for SL and TP
+    label.new(bar_index + 1, entry_price - atr * atrMultiplier, 'SL', color = color.red, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, entry_price + atr * atrMultiplier * riskReward / 3, 'TP1', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, entry_price + atr * atrMultiplier * riskReward * 2 / 3, 'TP2', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, entry_price + atr * atrMultiplier * riskReward, 'TP3', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+
+// Entry Logic and Plotting Lines/Labels when Sell Signal is triggered
+if shortCondition
+    // Clear existing lines if any
+    line.delete(entry_line)
+    line.delete(sl_line)
+    line.delete(tp1_line)
+    line.delete(tp2_line)
+    line.delete(tp3_line)
+
+    // Entry at the crossover price
+    entry_price = close // Entry at the crossover price (EMA crossover)
+
+    // Plot Entry Line
+    entry_line := line.new(bar_index, entry_price, bar_index + 1, entry_price, color = color.gray, width = 2, extend = extend.right)
+
+    // Stop Loss and Take Profit levels
+    sl_line := line.new(bar_index, entry_price + atr * atrMultiplier, bar_index + 1, entry_price + atr * atrMultiplier, color = color.red, style = line.style_dotted, extend = extend.right)
+    tp1_line := line.new(bar_index, entry_price - atr * atrMultiplier * riskReward / 3, bar_index + 1, entry_price - atr * atrMultiplier * riskReward / 3, color = color.green, style = line.style_dotted, extend = extend.right)
+    tp2_line := line.new(bar_index, entry_price - atr * atrMultiplier * riskReward * 2 / 3, bar_index + 1, entry_price - atr * atrMultiplier * riskReward * 2 / 3, color = color.green, style = line.style_dotted, extend = extend.right)
+    tp3_line := line.new(bar_index, entry_price - atr * atrMultiplier * riskReward, bar_index + 1, entry_price - atr * atrMultiplier * riskReward, color = color.green, style = line.style_dotted, extend = extend.right)
+
+    // Labels for SL and TP
+    label.new(bar_index + 1, entry_price + atr * atrMultiplier, 'SL', color = color.red, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, entry_price - atr * atrMultiplier * riskReward / 3, 'TP1', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, entry_price - atr * atrMultiplier * riskReward * 2 / 3, 'TP2', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, entry_price - atr * atrMultiplier * riskReward, 'TP3', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
