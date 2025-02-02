@@ -1,5 +1,5 @@
 //@version=6
-indicator('Snipe Algorithm by SamFx', overlay = true)
+indicator('Sniper Entry Strategy with Best Exit', overlay = true)
 
 // Define Timeframe EMAs
 ema_15m = ta.ema(close, 50) // Green EMA (50-period)
@@ -14,7 +14,7 @@ plot(ema_1m, color = color.purple, title = 'EMA 10')
 // ATR for SL/TP calculation
 atr = ta.atr(14)
 atrMultiplier = 1.5 // Multiplier for SL
-riskReward = 2 // Risk-Reward ratio
+riskReward = 3.5 // Risk-Reward ratio
 
 // Crossover and Crossunder Conditions for Buy/Sell Signals
 longCondition = ta.crossover(ema_5m, ema_15m) // Buy Signal when EMA 20 crosses above EMA 50
@@ -26,61 +26,109 @@ plotshape(series = shortCondition, location = location.abovebar, color = color.r
 
 // New variables for SL and TP lines
 var line sl_line = na
-var line tp1_line = na
-var line tp2_line = na
-var line tp3_line = na
+var line tp_line = na
 var line entry_line = na
+var bool tpHit = false // Status for TP hit (True/False)
+var float entry_price = na // To store the entry price
+var int win_count = 0 // Counter for wins
+var int lose_count = 0 // Counter for losses
+
+// Declare tp_hit_probability variable
+var float tp_hit_probability = na
+
+// Calculate Probability Only When Signal Occurs
+volatility_factor = atr / math.max(ta.sma(atr, 20), 1) // Higher ATR, higher volatility (avoid division by zero)
+momentum_factor = ta.rsi(close, 14) / 100 // Higher RSI, stronger momentum
+breakout_factor = volume / math.max(ta.sma(volume, 20), 1) // Higher volume, higher breakout probability (avoid division by zero)
+bb_widening = ta.stdev(close, 20) > 2 * ta.stdev(close, 20) ? 1 : 0 // If BB is widening, set to 1
+
+// Weighted Score for Probability Calculation
+probability = volatility_factor * 0.25 + momentum_factor * 0.25 + breakout_factor * 0.2 + bb_widening * 0.3
 
 // Entry Logic and Plotting Lines/Labels when Buy Signal is triggered
 if longCondition
     // Clear existing lines if any
     line.delete(entry_line)
     line.delete(sl_line)
-    line.delete(tp1_line)
-    line.delete(tp2_line)
-    line.delete(tp3_line)
+    line.delete(tp_line)
 
     // Entry at the crossover price
-    entry_price = close // Entry at the crossover price (EMA crossover)
+    entry_price := close // Entry at the crossover price (EMA crossover)
 
     // Plot Entry Line
     entry_line := line.new(bar_index, entry_price, bar_index + 1, entry_price, color = color.gray, width = 2, extend = extend.right)
 
-    // Stop Loss and Take Profit levels
+    // Stop Loss and Take Profit levels (Single TP)
     sl_line := line.new(bar_index, entry_price - atr * atrMultiplier, bar_index + 1, entry_price - atr * atrMultiplier, color = color.red, style = line.style_dotted, extend = extend.right)
-    tp1_line := line.new(bar_index, entry_price + atr * atrMultiplier * riskReward / 3, bar_index + 1, entry_price + atr * atrMultiplier * riskReward / 3, color = color.green, style = line.style_dotted, extend = extend.right)
-    tp2_line := line.new(bar_index, entry_price + atr * atrMultiplier * riskReward * 2 / 3, bar_index + 1, entry_price + atr * atrMultiplier * riskReward * 2 / 3, color = color.green, style = line.style_dotted, extend = extend.right)
-    tp3_line := line.new(bar_index, entry_price + atr * atrMultiplier * riskReward, bar_index + 1, entry_price + atr * atrMultiplier * riskReward, color = color.green, style = line.style_dotted, extend = extend.right)
+    tp_line := line.new(bar_index, entry_price + atr * atrMultiplier * riskReward, bar_index + 1, entry_price + atr * atrMultiplier * riskReward, color = color.green, style = line.style_dotted, extend = extend.right)
 
     // Labels for SL and TP
     label.new(bar_index + 1, entry_price - atr * atrMultiplier, 'SL', color = color.red, textcolor = color.white, size = size.small, style = label.style_none)
-    label.new(bar_index + 1, entry_price + atr * atrMultiplier * riskReward / 3, 'TP1', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
-    label.new(bar_index + 1, entry_price + atr * atrMultiplier * riskReward * 2 / 3, 'TP2', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
-    label.new(bar_index + 1, entry_price + atr * atrMultiplier * riskReward, 'TP3', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, entry_price + atr * atrMultiplier * riskReward, 'TP', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+
+    // Reset TP hit status for new trade
+    tpHit := false
 
 // Entry Logic and Plotting Lines/Labels when Sell Signal is triggered
 if shortCondition
     // Clear existing lines if any
     line.delete(entry_line)
     line.delete(sl_line)
-    line.delete(tp1_line)
-    line.delete(tp2_line)
-    line.delete(tp3_line)
+    line.delete(tp_line)
 
     // Entry at the crossover price
-    entry_price = close // Entry at the crossover price (EMA crossover)
+    entry_price := close // Entry at the crossover price (EMA crossover)
 
     // Plot Entry Line
     entry_line := line.new(bar_index, entry_price, bar_index + 1, entry_price, color = color.gray, width = 2, extend = extend.right)
 
-    // Stop Loss and Take Profit levels
+    // Stop Loss and Take Profit levels (Single TP)
     sl_line := line.new(bar_index, entry_price + atr * atrMultiplier, bar_index + 1, entry_price + atr * atrMultiplier, color = color.red, style = line.style_dotted, extend = extend.right)
-    tp1_line := line.new(bar_index, entry_price - atr * atrMultiplier * riskReward / 3, bar_index + 1, entry_price - atr * atrMultiplier * riskReward / 3, color = color.green, style = line.style_dotted, extend = extend.right)
-    tp2_line := line.new(bar_index, entry_price - atr * atrMultiplier * riskReward * 2 / 3, bar_index + 1, entry_price - atr * atrMultiplier * riskReward * 2 / 3, color = color.green, style = line.style_dotted, extend = extend.right)
-    tp3_line := line.new(bar_index, entry_price - atr * atrMultiplier * riskReward, bar_index + 1, entry_price - atr * atrMultiplier * riskReward, color = color.green, style = line.style_dotted, extend = extend.right)
+    tp_line := line.new(bar_index, entry_price - atr * atrMultiplier * riskReward, bar_index + 1, entry_price - atr * atrMultiplier * riskReward, color = color.green, style = line.style_dotted, extend = extend.right)
 
     // Labels for SL and TP
     label.new(bar_index + 1, entry_price + atr * atrMultiplier, 'SL', color = color.red, textcolor = color.white, size = size.small, style = label.style_none)
-    label.new(bar_index + 1, entry_price - atr * atrMultiplier * riskReward / 3, 'TP1', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
-    label.new(bar_index + 1, entry_price - atr * atrMultiplier * riskReward * 2 / 3, 'TP2', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
-    label.new(bar_index + 1, entry_price - atr * atrMultiplier * riskReward, 'TP3', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+    label.new(bar_index + 1, entry_price - atr * atrMultiplier * riskReward, 'TP', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+
+    // Reset TP hit status for new trade
+    tpHit := false
+
+// Calculate TP Hit Probability based on current price, TP, and SL levels
+var float tp_distance = na
+var float sl_distance = na
+if not na(entry_price)
+    if longCondition
+        tp_distance := line.get_price(tp_line, bar_index) - close
+        sl_distance := close - line.get_price(sl_line, bar_index)
+    if shortCondition
+        tp_distance := close - line.get_price(tp_line, bar_index)
+        sl_distance := line.get_price(sl_line, bar_index) - close
+
+    // Dynamic TP Hit Probability Calculation
+    tp_hit_probability := tp_distance / (tp_distance + sl_distance) * 100
+    tp_hit_probability := math.min(math.max(tp_hit_probability, 0), 100) // Clamp between 0% and 100%
+
+// Check if TP or SL is hit
+if not na(entry_price)
+    if longCondition
+        tpHit := close >= line.get_price(tp_line, bar_index)
+        if close <= line.get_price(sl_line, bar_index)
+            lose_count := lose_count + 1
+    if shortCondition
+        tpHit := close <= line.get_price(tp_line, bar_index)
+        if close >= line.get_price(sl_line, bar_index)
+            lose_count := lose_count + 1
+
+    if tpHit
+        win_count := win_count + 1
+
+// Calculate the Win-to-Lose Ratio
+win_to_lose_ratio = lose_count > 0 ? win_count / lose_count : win_count // If no losses, ratio is win_count
+
+// Determine Table Color Based on Probability and TP Hit Status
+probability_color = tpHit ? color.green : tp_hit_probability > 75 ? color.green : tp_hit_probability > 50 ? color.gray : color.red
+
+// Display the TP Probability and Win-to-Lose Ratio in the Chart (top right corner)
+var table prob_table = table.new(position.top_right, 2, 1)
+table.cell(prob_table, 0, 0, text = 'TP Hit Probability: ' + str.tostring(tp_hit_probability, '#.##') + '%', text_color = color.white, bgcolor = probability_color)
+table.cell(prob_table, 1, 0, text = 'Win/Lose Ratio: ' + str.tostring(win_to_lose_ratio, '#.##'), text_color = color.white, bgcolor = color.blue)
