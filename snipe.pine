@@ -1,10 +1,10 @@
 //@version=6
-indicator('Sniper Entry Strategy with Best Exit', overlay = true)
+indicator('Sniper Entry Strategy by SamFx', overlay = true)
 
 // Define Timeframe EMAs
-ema_15m = ta.ema(close, 50) // Green EMA (50-period)
-ema_5m = ta.ema(close, 20) // Yellow EMA (20-period)
-ema_1m = ta.ema(close, 10) // Purple EMA (10-period)
+ema_15m = ta.ema(close, 50)
+ema_5m = ta.ema(close, 20)
+ema_1m = ta.ema(close, 10)
 
 // Plot EMAs
 plot(ema_15m, color = color.green, title = 'EMA 50')
@@ -13,122 +13,139 @@ plot(ema_1m, color = color.purple, title = 'EMA 10')
 
 // ATR for SL/TP calculation
 atr = ta.atr(14)
-atrMultiplier = 1.5 // Multiplier for SL
-riskReward = 3.5 // Risk-Reward ratio
+atrMultiplier = 2
+riskReward = 2
 
-// Crossover and Crossunder Conditions for Buy/Sell Signals
-longCondition = ta.crossover(ema_5m, ema_15m) // Buy Signal when EMA 20 crosses above EMA 50
-shortCondition = ta.crossunder(ema_5m, ema_15m) // Sell Signal when EMA 20 crosses below EMA 50
+// Crossover Conditions
+longCondition = ta.crossover(ema_5m, ema_15m)
+shortCondition = ta.crossunder(ema_5m, ema_15m)
 
-// Plot Buy/Sell Signals
-plotshape(series = longCondition, location = location.belowbar, color = color.green, style = shape.labelup, title = 'Buy Signal', size = size.normal)
-plotshape(series = shortCondition, location = location.abovebar, color = color.red, style = shape.labeldown, title = 'Sell Signal', size = size.normal)
+// Plot Signals
+plotshape(series = longCondition, location = location.belowbar, color = color.green, style = shape.labelup, size = size.small, title = 'Buy Signal')
+plotshape(series = shortCondition, location = location.abovebar, color = color.red, style = shape.labeldown, size = size.small, title = 'Sell Signal')
 
-// New variables for SL and TP lines
+// Trade Tracking Variables
+var bool inTrade = false // Is there an active trade?
+var bool isLong = false // Trade direction (true = long)
+var float entry_price = na
+var float sl_price = na
+var float tp_price = na
+var line entry_line = na
 var line sl_line = na
 var line tp_line = na
-var line entry_line = na
-var bool tpHit = false // Status for TP hit (True/False)
-var float entry_price = na // To store the entry price
-var int win_count = 0 // Counter for wins
-var int lose_count = 0 // Counter for losses
 
-// Declare tp_hit_probability variable
-var float tp_hit_probability = na
+// Win/Loss Counters
+var int win_count = 0
+var int lose_count = 0
 
-// Calculate Probability Only When Signal Occurs
-volatility_factor = atr / math.max(ta.sma(atr, 20), 1) // Higher ATR, higher volatility (avoid division by zero)
-momentum_factor = ta.rsi(close, 14) / 100 // Higher RSI, stronger momentum
-breakout_factor = volume / math.max(ta.sma(volume, 20), 1) // Higher volume, higher breakout probability (avoid division by zero)
-bb_widening = ta.stdev(close, 20) > 2 * ta.stdev(close, 20) ? 1 : 0 // If BB is widening, set to 1
+// Latest Signal Details
+var float latest_entry_price = na
+var float latest_tp_price = na
+var float latest_sl_price = na
+var float latest_probability_tp_hit = na
 
-// Weighted Score for Probability Calculation
-probability = volatility_factor * 0.25 + momentum_factor * 0.25 + breakout_factor * 0.2 + bb_widening * 0.3
+// ====== Probability Calculation ======
+// Trend Strength (EMA Slope)
+ema_slope_5m = ta.change(ema_5m)
+trend_strength_score = math.abs(ema_slope_5m) / ta.atr(14) * 100 // Normalize by ATR
 
-// Entry Logic and Plotting Lines/Labels when Buy Signal is triggered
-if longCondition
-    // Clear existing lines if any
+// Volatility (ATR)
+volatility_score = atr / close * 100 // ATR as % of price
+
+// Risk-Reward Ratio
+risk_reward_score = riskReward * 20 // Higher RR = higher score
+
+// Volume (Relative to Average Volume)
+volume_score = volume / ta.sma(volume, 20) * 100 // Volume relative to 20-period average
+
+// Candlestick Pattern (Bullish/Bearish)
+candle_score = 0
+if isLong and close > open or not isLong and close < open
+    candle_score := 50 // Bullish candle for long, Bearish for short
+    candle_score
+
+// Total Probability Score
+total_score = trend_strength_score + volatility_score + risk_reward_score + volume_score + candle_score
+probability_tp_hit = math.min(total_score / 5, 100) // Cap at 100%
+
+// ====== Trade Entry Logic ======
+if (longCondition or shortCondition) and not inTrade
+    entry_price := close
+    inTrade := true
+    isLong := longCondition // Set direction based on trigger
+
+    // Store latest signal details
+    latest_entry_price := entry_price
+    latest_tp_price := isLong ? entry_price + atr * atrMultiplier * riskReward : entry_price - atr * atrMultiplier * riskReward
+    latest_sl_price := isLong ? entry_price - atr * atrMultiplier : entry_price + atr * atrMultiplier
+    latest_probability_tp_hit := probability_tp_hit
+
+    // Clear old lines
     line.delete(entry_line)
     line.delete(sl_line)
     line.delete(tp_line)
 
-    // Entry at the crossover price
-    entry_price := close // Entry at the crossover price (EMA crossover)
-
-    // Plot Entry Line
+    // Plot Entry Line (Gray Horizontal Line)
     entry_line := line.new(bar_index, entry_price, bar_index + 1, entry_price, color = color.gray, width = 2, extend = extend.right)
+    label.new(bar_index + 1, entry_price, text = 'Entry', color = color.white, textcolor = color.white, size = size.small, style = label.style_none)
 
-    // Stop Loss and Take Profit levels (Single TP)
-    sl_line := line.new(bar_index, entry_price - atr * atrMultiplier, bar_index + 1, entry_price - atr * atrMultiplier, color = color.red, style = line.style_dotted, extend = extend.right)
-    tp_line := line.new(bar_index, entry_price + atr * atrMultiplier * riskReward, bar_index + 1, entry_price + atr * atrMultiplier * riskReward, color = color.green, style = line.style_dotted, extend = extend.right)
+    // Set Stop Loss and Take Profit prices
+    sl_price := latest_sl_price
+    tp_price := latest_tp_price
 
-    // Labels for SL and TP
-    label.new(bar_index + 1, entry_price - atr * atrMultiplier, 'SL', color = color.red, textcolor = color.white, size = size.small, style = label.style_none)
-    label.new(bar_index + 1, entry_price + atr * atrMultiplier * riskReward, 'TP', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
+    // Plot SL Line (Red Dotted Horizontal Line)
+    sl_line := line.new(bar_index, sl_price, bar_index + 1, sl_price, color = color.red, style = line.style_dotted, extend = extend.right)
+    label.new(bar_index + 1, sl_price, text = 'SL', color = color.white, textcolor = color.white, size = size.small, style = label.style_none)
 
-    // Reset TP hit status for new trade
-    tpHit := false
+    // Plot TP Line (Green Dotted Horizontal Line)
+    tp_line := line.new(bar_index, tp_price, bar_index + 1, tp_price, color = color.green, style = line.style_dotted, extend = extend.right)
+    label.new(bar_index + 1, tp_price, text = 'TP', color = color.white, textcolor = color.white, size = size.small, style = label.style_none)
 
-// Entry Logic and Plotting Lines/Labels when Sell Signal is triggered
-if shortCondition
-    // Clear existing lines if any
-    line.delete(entry_line)
-    line.delete(sl_line)
-    line.delete(tp_line)
+// ====== Check Exits ======
+// Define exit conditions
+buy_cross = ta.crossover(ema_5m, ema_1m) // 5-min EMA crossing above 1-min EMA for buy exit
+sell_cross = ta.crossunder(ema_5m, ema_1m) // 5-min EMA crossing below 1-min EMA for sell exit
 
-    // Entry at the crossover price
-    entry_price := close // Entry at the crossover price (EMA crossover)
+if inTrade
+    // Additional Exit Condition (EMA Distance > Threshold and Near Price)
+    bool additionalExit = isLong and sell_cross or not isLong and buy_cross
 
-    // Plot Entry Line
-    entry_line := line.new(bar_index, entry_price, bar_index + 1, entry_price, color = color.gray, width = 2, extend = extend.right)
+    // Regular Exit Condition (TP or SL Hit)
+    bool regularExit = isLong and (close >= tp_price or close <= sl_price) or not isLong and (close <= tp_price or close >= sl_price)
 
-    // Stop Loss and Take Profit levels (Single TP)
-    sl_line := line.new(bar_index, entry_price + atr * atrMultiplier, bar_index + 1, entry_price + atr * atrMultiplier, color = color.red, style = line.style_dotted, extend = extend.right)
-    tp_line := line.new(bar_index, entry_price - atr * atrMultiplier * riskReward, bar_index + 1, entry_price - atr * atrMultiplier * riskReward, color = color.green, style = line.style_dotted, extend = extend.right)
-
-    // Labels for SL and TP
-    label.new(bar_index + 1, entry_price + atr * atrMultiplier, 'SL', color = color.red, textcolor = color.white, size = size.small, style = label.style_none)
-    label.new(bar_index + 1, entry_price - atr * atrMultiplier * riskReward, 'TP', color = color.green, textcolor = color.white, size = size.small, style = label.style_none)
-
-    // Reset TP hit status for new trade
-    tpHit := false
-
-// Calculate TP Hit Probability based on current price, TP, and SL levels
-var float tp_distance = na
-var float sl_distance = na
-if not na(entry_price)
-    if longCondition
-        tp_distance := line.get_price(tp_line, bar_index) - close
-        sl_distance := close - line.get_price(sl_line, bar_index)
-    if shortCondition
-        tp_distance := close - line.get_price(tp_line, bar_index)
-        sl_distance := line.get_price(sl_line, bar_index) - close
-
-    // Dynamic TP Hit Probability Calculation
-    tp_hit_probability := tp_distance / (tp_distance + sl_distance) * 100
-    tp_hit_probability := math.min(math.max(tp_hit_probability, 0), 100) // Clamp between 0% and 100%
-
-// Check if TP or SL is hit
-if not na(entry_price)
-    if longCondition
-        tpHit := close >= line.get_price(tp_line, bar_index)
-        if close <= line.get_price(sl_line, bar_index)
+    if regularExit or additionalExit
+        // Count wins/losses
+        if isLong and close >= tp_price or not isLong and close <= tp_price
+            win_count := win_count + 1
+            win_count
+        else
             lose_count := lose_count + 1
-    if shortCondition
-        tpHit := close <= line.get_price(tp_line, bar_index)
-        if close >= line.get_price(sl_line, bar_index)
-            lose_count := lose_count + 1
+            lose_count
 
-    if tpHit
-        win_count := win_count + 1
+        // Reset trade state
+        inTrade := false
+        entry_price := na
+        sl_price := na
+        tp_price := na
+        line.delete(entry_line)
+        line.delete(sl_line)
+        line.delete(tp_line)
 
-// Calculate the Win-to-Lose Ratio
-win_to_lose_ratio = lose_count > 0 ? win_count / lose_count : win_count // If no losses, ratio is win_count
+// ====== Display Statistics ======
+var table stats = table.new(position = position.top_right, columns = 4, rows = 2, bgcolor = color.new(color.gray, 90), border_width = 1)
 
-// Determine Table Color Based on Probability and TP Hit Status
-probability_color = tpHit ? color.green : tp_hit_probability > 75 ? color.green : tp_hit_probability > 50 ? color.gray : color.red
+if barstate.islast
+    total_trades = win_count + lose_count
+    win_rate = total_trades > 0 ? win_count * 100.0 / total_trades : 0
 
-// Display the TP Probability and Win-to-Lose Ratio in the Chart (top right corner)
-var table prob_table = table.new(position.top_right, 2, 1)
-table.cell(prob_table, 0, 0, text = 'TP Hit Probability: ' + str.tostring(tp_hit_probability, '#.##') + '%', text_color = color.white, bgcolor = probability_color)
-table.cell(prob_table, 1, 0, text = 'Win/Lose Ratio: ' + str.tostring(win_to_lose_ratio, '#.##'), text_color = color.white, bgcolor = color.blue)
+    // Table Headers
+    table.cell(stats, column = 0, row = 0, text = 'Total Trades', bgcolor = color.new(color.blue, 80), text_color = color.white, text_size = size.small, text_halign = text.align_center)
+    table.cell(stats, column = 1, row = 0, text = 'Win Rate', bgcolor = color.new(color.blue, 80), text_color = color.white, text_size = size.small, text_halign = text.align_center)
+    table.cell(stats, column = 2, row = 0, text = 'W/L', bgcolor = color.new(color.blue, 80), text_color = color.white, text_size = size.small, text_halign = text.align_center)
+    table.cell(stats, column = 3, row = 0, text = 'TP Prob', bgcolor = color.new(color.blue, 80), text_color = color.white, text_size = size.small, text_halign = text.align_center)
+
+    // Table Data
+    table.cell(stats, column = 0, row = 1, text = str.tostring(total_trades), bgcolor = color.new(color.gray, 70), text_color = color.white, text_size = size.small, text_halign = text.align_center)
+    table.cell(stats, column = 1, row = 1, text = str.tostring(win_rate, '#.##') + '%', bgcolor = win_rate >= 50 ? color.new(color.green, 70) : color.new(color.red, 70), text_color = color.white, text_size = size.small, text_halign = text.align_center)
+    table.cell(stats, column = 2, row = 1, text = str.tostring(win_count) + '/' + str.tostring(lose_count), bgcolor = color.new(color.gray, 70), text_color = color.white, text_size = size.small, text_halign = text.align_center)
+    table.cell(stats, column = 3, row = 1, text = str.tostring(latest_probability_tp_hit, '#.##') + '%', bgcolor = latest_probability_tp_hit >= 50 ? color.new(color.green, 70) : color.new(color.red, 70), text_color = color.white, text_size = size.small, text_halign = text.align_center)
