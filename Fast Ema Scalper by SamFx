@@ -39,24 +39,16 @@ var box longBox = na
 var box shortBox = na
 
 if longCondition and volFilter
-    longEntryLine := line.new(x1 = bar_index, y1 = close, x2 = bar_index + 5, y2 = close, color = #bbb9b6, width = 2, style = line.style_solid) // Entry Line
-    longSLLine := line.new(x1 = bar_index, y1 = longSL, x2 = bar_index + 5, y2 = longSL, color = color.red, width = 2, style = line.style_dashed) // SL Line
-    longTPLine := line.new(x1 = bar_index, y1 = longTP, x2 = bar_index + 5, y2 = longTP, color = color.green, width = 2, style = line.style_dashed) // TP Line
     
     // Create shaded area between Entry and TP (Faded Green)
-    longBox := box.new(left = bar_index, top = longTP, right = bar_index + 5, bottom = close, border_color = color.green, bgcolor = color.new(color.green, 80), extend = extend.none)
-
+    longBox := box.new(left = bar_index, top = longTP, right = bar_index + 5, bottom = close, border_color = #00c90716, bgcolor = #00ff0833, extend = extend.none)
     // Create shaded area between Entry and SL (Faded Red)
     box.delete(longBox[1])  // Delete previous long box if any (to prevent overlap)
-    longBox := box.new(left = bar_index, top = close, right = bar_index + 5, bottom = longSL, border_color = color.red, bgcolor = color.new(color.red, 80), extend = extend.none)
+    longBox := box.new(left = bar_index, top = close, right = bar_index + 5, bottom = longSL, border_color = #e9333317, bgcolor = #fa00002e, extend = extend.none)
 
     alert('BUY Signal! Entry: ' + str.tostring(close) + ' | SL: ' + str.tostring(longSL) + ' | TP: ' + str.tostring(longTP), alert.freq_once_per_bar_close)
 
 if shortCondition and volFilter
-    shortEntryLine := line.new(x1 = bar_index, y1 = close, x2 = bar_index + 5, y2 = close, color = #bbb9b6, width = 2, style = line.style_solid) // Entry Line
-    shortSLLine := line.new(x1 = bar_index, y1 = shortSL, x2 = bar_index + 5, y2 = shortSL, color = color.red, width = 2, style = line.style_dashed) // SL Line
-    shortTPLine := line.new(x1 = bar_index, y1 = shortTP, x2 = bar_index + 5, y2 = shortTP, color = color.green, width = 2, style = line.style_dashed) // TP Line
-    
     // Create shaded area between Entry and TP (Faded Green)
     shortBox := box.new(left = bar_index, top = shortTP, right = bar_index + 5, bottom = close, border_color = #00c90716, bgcolor = #00ff0833, extend = extend.none)
 
