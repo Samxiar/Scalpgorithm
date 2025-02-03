@@ -1,0 +1,135 @@
+//@version=6
+indicator('Pace Scalper By SamFx', overlay = true)
+
+// Define EMAs for 5 & 11 EMA Crossover
+ema5 = ta.ema(close, 5)
+ema11 = ta.ema(close, 11)
+ema50 = ta.ema(close, 50)
+
+// ATR-based SL Calculation
+atrLength = 14
+atrMultiplier = 1.5
+atrValue = ta.atr(atrLength)
+
+// Buy & Sell Conditions for 5 & 11 EMA Crossover
+longCondition = ta.crossover(ema5, ema11)
+shortCondition = ta.crossunder(ema5, ema11)
+
+// ATR-based Stop Loss & Take Profit
+longSL = close - atrValue * atrMultiplier
+shortSL = close + atrValue * atrMultiplier
+
+// Risk-Reward Ratio (RR = 1:2)
+rr_ratio = 2.0
+longTP = close + (close - longSL) * rr_ratio
+shortTP = close - (shortSL - close) * rr_ratio
+
+// Volume Filter for confirming signals
+volFilter = volume > ta.sma(volume, 10)
+
+// Draw Trade Lines for 5 & 11 EMA Strategy
+var line longEntryLine = na
+var line longSLLine = na
+var line longTPLine = na
+var line shortEntryLine = na
+var line shortSLLine = na
+var line shortTPLine = na
+
+if longCondition and volFilter
+    longEntryLine := line.new(x1 = bar_index, y1 = close, x2 = bar_index + 5, y2 = close, color = color.blue, width = 2, style = line.style_solid) // Entry Line
+    longSLLine := line.new(x1 = bar_index, y1 = longSL, x2 = bar_index + 5, y2 = longSL, color = color.red, width = 2, style = line.style_dashed) // SL Line
+    longTPLine := line.new(x1 = bar_index, y1 = longTP, x2 = bar_index + 5, y2 = longTP, color = color.green, width = 2, style = line.style_dashed) // TP Line
+    alert('BUY Signal! Entry: ' + str.tostring(close) + ' | SL: ' + str.tostring(longSL) + ' | TP: ' + str.tostring(longTP), alert.freq_once_per_bar_close)
+
+if shortCondition and volFilter
+    shortEntryLine := line.new(x1 = bar_index, y1 = close, x2 = bar_index + 5, y2 = close, color = color.orange, width = 2, style = line.style_solid) // Entry Line
+    shortSLLine := line.new(x1 = bar_index, y1 = shortSL, x2 = bar_index + 5, y2 = shortSL, color = color.red, width = 2, style = line.style_dashed) // SL Line
+    shortTPLine := line.new(x1 = bar_index, y1 = shortTP, x2 = bar_index + 5, y2 = shortTP, color = color.green, width = 2, style = line.style_dashed) // TP Line
+    alert('SELL Signal! Entry: ' + str.tostring(close) + ' | SL: ' + str.tostring(shortSL) + ' | TP: ' + str.tostring(shortTP), alert.freq_once_per_bar_close)
+
+// Plot EMAs for 5 & 11 EMA Crossover Strategy
+plot(ema5, title = '5 EMA', color = #2195f352, linewidth = 2)
+plot(ema11, title = '11 EMA', color = #ff52526c, linewidth = 2)
+plot(ema50, title = '50 EMA', color = #d752ff, linewidth = 1)
+
+// Define Trend Based on EMA Crossover for Multi-Timeframe
+fastEMA = ta.ema(close, 9)
+slowEMA = ta.ema(close, 21)
+longConditionMTF = ta.crossover(fastEMA, slowEMA)
+shortConditionMTF = ta.crossunder(fastEMA, slowEMA)
+
+var trend = 0
+if longConditionMTF
+    trend := 1
+    trend
+if shortConditionMTF
+    trend := -1
+    trend
+
+// Volume-Based Trend Confirmation for Multi-Timeframe
+volEMA = ta.ema(volume, 20)
+volTrend = volume > volEMA ? trend : 0
+
+// Request trend values from different timeframes
+t1 = '1'
+t2 = '3'
+t3 = '5'
+t4 = '10'
+t5 = '15'
+
+s1 = request.security(syminfo.tickerid, t1, volTrend)
+s2 = request.security(syminfo.tickerid, t2, volTrend)
+s3 = request.security(syminfo.tickerid, t3, volTrend)
+s4 = request.security(syminfo.tickerid, t4, volTrend)
+s5 = request.security(syminfo.tickerid, t5, volTrend)
+
+s1a = s1 == 1 ? 'Bullish' : 'Bearish'
+s2a = s2 == 1 ? 'Bullish' : 'Bearish'
+s3a = s3 == 1 ? 'Bullish' : 'Bearish'
+s4a = s4 == 1 ? 'Bullish' : 'Bearish'
+s5a = s5 == 1 ? 'Bullish' : 'Bearish'
+
+// Session Times (UTC)
+tokyoStart = timestamp(year, month, dayofmonth, 00, 00)
+tokyoEnd = timestamp(year, month, dayofmonth, 09, 00)
+londonStart = timestamp(year, month, dayofmonth, 08, 00)
+londonEnd = timestamp(year, month, dayofmonth, 17, 00)
+nyStart = timestamp(year, month, dayofmonth, 13, 00)
+nyEnd = timestamp(year, month, dayofmonth, 22, 00)
+
+// Check if Current Session is Active
+tokyoActive = time >= tokyoStart and time < tokyoEnd
+londonActive = time >= londonStart and time < londonEnd
+nyActive = time >= nyStart and time < nyEnd
+
+tokyoColor = tokyoActive ? color.green : color.gray
+londonColor = londonActive ? color.green : color.gray
+nyColor = nyActive ? color.green : color.gray
+
+tokyoText = tokyoActive ? 'Tokyo' : ' '
+londonText = londonActive ? 'London' : ' '
+nyText = nyActive ? 'New York' : ' '
+
+// Create Multi-Timeframe Trend Table
+if barstate.islast
+    var data_table = table.new(position = position.top_right, columns = 3, rows = 6, bgcolor = chart.bg_color, border_width = 1, border_color = chart.fg_color, frame_color = chart.fg_color, frame_width = 1)
+
+    // Table Headers
+    table.cell(data_table, 0, 0, 'Time Frame', text_color = chart.fg_color)
+    table.cell(data_table, 1, 0, 'Trend', text_color = chart.fg_color)
+    table.cell(data_table, 2, 0, 'Sessions', text_color = chart.fg_color)
+
+    // Timeframes and Trends
+    tfArray = array.from(t1, t2, t3, t4, t5)
+    trendArray = array.from(s1a, s2a, s3a, s4a, s5a)
+
+    for i = 0 to 4 by 1
+        table.cell(data_table, 0, i + 1, array.get(tfArray, i) + 'm', text_color = chart.fg_color)
+        trendText = array.get(trendArray, i)
+        trendColor = trendText == 'Bullish' ? color.new(color.green, 70) : color.new(color.red, 70)
+        table.cell(data_table, 1, i + 1, trendText, text_color = chart.fg_color, bgcolor = trendColor)
+
+    // Sessions Row
+    table.cell(data_table, 2, 1, tokyoText, text_color = tokyoColor)
+    table.cell(data_table, 2, 2, londonText, text_color = londonColor)
+    table.cell(data_table, 2, 3, nyText, text_color = nyColor)
