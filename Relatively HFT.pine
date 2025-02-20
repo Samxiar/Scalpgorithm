@@ -1,0 +1,44 @@
+//@version=6
+indicator('HFT 1:2 by SamFx', overlay = true)
+
+// Settings
+fastLength = 9
+slowLength = 21
+atrLength = 14
+tpMultiplier = 2
+slMultiplier = 1.0
+
+// Moving Averages
+fastMA = ta.ema(close, fastLength)
+slowMA = ta.ema(close, slowLength)
+
+// ATR for TP/SL calculation
+atrValue = ta.atr(atrLength)
+
+// Define Entry Signals
+longEntry = ta.crossover(fastMA, slowMA)
+shortEntry = ta.crossunder(fastMA, slowMA)
+
+// Define TP/SL Levels Using ATR
+tpLong = close + atrValue * tpMultiplier
+slLong = close - atrValue * slMultiplier
+
+tpShort = close - atrValue * tpMultiplier
+slShort = close + atrValue * slMultiplier
+
+// Draw Horizontal Dotted Lines for All Signals
+if longEntry
+    line.new(x1 = bar_index, y1 = close, x2 = bar_index + 10, y2 = close, width = 1, color = color.green, style = line.style_dotted)
+    line.new(x1 = bar_index, y1 = tpLong, x2 = bar_index + 10, y2 = tpLong, width = 1, color = color.lime, style = line.style_dotted)
+    line.new(x1 = bar_index, y1 = slLong, x2 = bar_index + 10, y2 = slLong, width = 1, color = color.red, style = line.style_dotted)
+    line.new(x1 = bar_index, y1 = close, x2 = bar_index + 10, y2 = close, width = 1, color = color.gray, style = line.style_dotted)
+    box.new(left = bar_index, right = bar_index + 10, top = tpLong, bottom = close, bgcolor = color.new(color.green, 85))
+    alert('Long Entry Signal Detected!', alert.freq_once_per_bar)
+
+if shortEntry
+    line.new(x1 = bar_index, y1 = close, x2 = bar_index + 10, y2 = close, width = 1, color = color.red, style = line.style_dotted)
+    line.new(x1 = bar_index, y1 = tpShort, x2 = bar_index + 10, y2 = tpShort, width = 1, color = color.lime, style = line.style_dotted)
+    line.new(x1 = bar_index, y1 = slShort, x2 = bar_index + 10, y2 = slShort, width = 1, color = color.red, style = line.style_dotted)
+    line.new(x1 = bar_index, y1 = close, x2 = bar_index + 10, y2 = close, width = 1, color = color.gray, style = line.style_dotted)
+    box.new(left = bar_index, right = bar_index + 10, top = close, bottom = slShort, bgcolor = color.new(color.red, 85))
+    alert('Short Entry Signal Detected!', alert.freq_once_per_bar)
