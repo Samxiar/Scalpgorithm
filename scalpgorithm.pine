@@ -279,7 +279,7 @@ if barstate.islast
     table.cell(data_table, 3, 5, text = 'Volume: ' + str.tostring(scaled_vwma, '#.##'), text_halign = text.align_center, text_color = color.white, bgcolor = bg_color)
 
 // === Trade Table — prices + $PnL (BTC @ 0.01 lot -> 100 pips = $1 => pip_value = $0.01) ===
-var table trade_table = table.new(position = position.bottom_right, columns = 6, rows = 3, 
+var table trade_table = table.new(position = position.bottom_right, columns = 6, rows = 4, 
                                   bgcolor = chart.bg_color, border_width = 1, border_color = chart.fg_color)
 
 // Persistent variables for trade data
@@ -359,7 +359,7 @@ fmt_usd(x) =>
 // Fill the trade table (header, price row, $ PnL row)
 if barstate.islast
     // Header row
-    table.cell(trade_table, 0, 0, "Signal", text_color = color.white, text_halign = text.align_center)
+    table.cell(trade_table, 0, 0, "Trigger", text_color = color.white, text_halign = text.align_center)
     table.cell(trade_table, 1, 0, "Entry",  text_color = color.white, text_halign = text.align_center)
     table.cell(trade_table, 2, 0, "SL",     text_color = color.white, text_halign = text.align_center)
     table.cell(trade_table, 3, 0, "TP1",    text_color = color.white, text_halign = text.align_center)
@@ -382,4 +382,40 @@ if barstate.islast
     table.cell(trade_table, 4, 2, fmt_usd(pnl_tp2_usd), text_color = (na(pnl_tp2_usd) ? color.gray : pnl_tp2_usd > 0 ? color.green : pnl_tp2_usd < 0 ? color.red : color.gray), text_halign = text.align_center)
     table.cell(trade_table, 5, 2, fmt_usd(pnl_tp3_usd), text_color = (na(pnl_tp3_usd) ? color.gray : pnl_tp3_usd > 0 ? color.green : pnl_tp3_usd < 0 ? color.red : color.gray), text_halign = text.align_center)
 
+// pip value for XAUUSD at 0.01 lot (your mapping: 1 pip = $1)
+xau_pip_value = 1.0
+
+// Helper for XAUUSD PnL
+calc_pnl_xau(price) =>
+    float result = na
+    if not na(trade_entry) and not na(trade_dir)
+        if trade_dir == "BUY"
+            result := (price - trade_entry) * xau_pip_value
+        else if trade_dir == "SELL"
+            result := (trade_entry - price) * xau_pip_value
+    result
+
+// Compute PnL values for XAU
+float pnl_sl_xau    = na
+float pnl_tp1_xau   = na
+float pnl_tp2_xau   = na
+float pnl_tp3_xau   = na
+
+if not na(trade_sl)
+    pnl_sl_xau := calc_pnl_xau(trade_sl)
+if not na(trade_tp1)
+    pnl_tp1_xau := calc_pnl_xau(trade_tp1)
+if not na(trade_tp2)
+    pnl_tp2_xau := calc_pnl_xau(trade_tp2)
+if not na(trade_tp3)
+    pnl_tp3_xau := calc_pnl_xau(trade_tp3)
+
+// Add extra row in table
+if barstate.islast
+    table.cell(trade_table, 0, 3, "XAU PnL ($)", text_color = color.white, text_halign = text.align_center)
+    table.cell(trade_table, 1, 3, "0", text_color = color.gray, text_halign = text.align_center)
+    table.cell(trade_table, 2, 3, fmt_usd(pnl_sl_xau),  text_color = (na(pnl_sl_xau) ? color.gray : pnl_sl_xau > 0 ? color.green : pnl_sl_xau < 0 ? color.red : color.gray), text_halign = text.align_center)
+    table.cell(trade_table, 3, 3, fmt_usd(pnl_tp1_xau), text_color = (na(pnl_tp1_xau) ? color.gray : pnl_tp1_xau > 0 ? color.green : pnl_tp1_xau < 0 ? color.red : color.gray), text_halign = text.align_center)
+    table.cell(trade_table, 4, 3, fmt_usd(pnl_tp2_xau), text_color = (na(pnl_tp2_xau) ? color.gray : pnl_tp2_xau > 0 ? color.green : pnl_tp2_xau < 0 ? color.red : color.gray), text_halign = text.align_center)
+    table.cell(trade_table, 5, 3, fmt_usd(pnl_tp3_xau), text_color = (na(pnl_tp3_xau) ? color.gray : pnl_tp3_xau > 0 ? color.green : pnl_tp3_xau < 0 ? color.red : color.gray), text_halign = text.align_center)
 
