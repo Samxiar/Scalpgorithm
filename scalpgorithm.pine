@@ -3,7 +3,7 @@ indicator('Scalpgorithm By SamFx', overlay = true)
 
 // Inputs
 length = input.int(14, 'Swing Detection Lookback')
-mult = input.float(1., 'Slope', minval = 0, step = .1)
+mult = input.float(1, 'Slope', minval = 0, step = .1)
 calcMethod = input.string('Atr', 'Slope Calculation Method', options = ['Atr', 'Stdev', 'Linreg'])
 backpaint = input(true)
 
@@ -15,7 +15,7 @@ showExt = input(true)
 // ATR Inputs for Stop Loss and Take Profit
 atrLength = input.int(14, title = 'ATR Length for SL/TP', minval = 1)
 atrMultiplier = input.float(0.5, title = 'ATR Multiplier for Stop-Loss', minval = 0.5)
-riskReward = input.float(1.5, title = 'Risk-Reward Multiplier')
+riskReward = input.float(6.9, title = 'Risk-Reward Multiplier')
 
 // Moving Average Inputs
 fastMA = input.int(9, title='Fast MA', minval=1)
@@ -162,6 +162,7 @@ if exitShort and dnos > dnos[1] // If in short position and crossunder occurs
     line.delete(tp1_line)
     line.delete(tp2_line)
     line.delete(tp3_line)
+    
 
 // Multi-Timeframe Signals and Table
 var table data_table = table.new(position = position.top_right, columns = 7, rows = 7, bgcolor = chart.bg_color, border_width = 1, border_color = chart.fg_color)
@@ -276,3 +277,109 @@ if barstate.islast
                text_halign = text.align_center, text_color = color.white)
     table.cell(data_table, 2, 5, text = 'RSI: ' + str.tostring(rsi_1hr, '#.##'), bgcolor = getRSIColor(rsi_1hr), text_halign = text.align_center, text_color = color.white)
     table.cell(data_table, 3, 5, text = 'Volume: ' + str.tostring(scaled_vwma, '#.##'), text_halign = text.align_center, text_color = color.white, bgcolor = bg_color)
+
+// === Trade Table — prices + $PnL (BTC @ 0.01 lot -> 100 pips = $1 => pip_value = $0.01) ===
+var table trade_table = table.new(position = position.bottom_right, columns = 6, rows = 3, 
+                                  bgcolor = chart.bg_color, border_width = 1, border_color = chart.fg_color)
+
+// Persistent variables for trade data
+var string trade_dir = ""
+var float trade_entry = na
+var float trade_sl = na
+var float trade_tp1 = na
+var float trade_tp2 = na
+var float trade_tp3 = na
+
+// pip value for BTC at 0.01 lot (100 pips = $1 -> 1 pip = $0.01)
+pip_value = 0.01
+
+// Update trade info when breakout happens (same logic as your lines)
+if upos > upos[1]  // Long breakout
+    trade_dir := "BUY"
+    trade_entry := upper - slope_ph * length
+    trade_sl := trade_entry - atr * atrMultiplier
+    trade_tp1 := trade_entry + atr * atrMultiplier * riskReward / 3
+    trade_tp2 := trade_entry + atr * atrMultiplier * riskReward * 2 / 3
+    trade_tp3 := trade_entry + atr * atrMultiplier * riskReward
+
+if dnos > dnos[1]  // Short breakout
+    trade_dir := "SELL"
+    trade_entry := lower + slope_pl * length
+    trade_sl := trade_entry + atr * atrMultiplier
+    trade_tp1 := trade_entry - atr * atrMultiplier * riskReward / 3
+    trade_tp2 := trade_entry - atr * atrMultiplier * riskReward * 2 / 3
+    trade_tp3 := trade_entry - atr * atrMultiplier * riskReward
+
+// Clear on exit (same clearing behavior)
+if (exitLong and upos > upos[1]) or (exitShort and dnos > dnos[1])
+    trade_dir := ""
+    trade_entry := na
+    trade_sl := na
+    trade_tp1 := na
+    trade_tp2 := na
+    trade_tp3 := na
+
+// Helper: compute USD PnL for a given price relative to entry and direction
+calc_pnl_usd(price) =>
+    float result = na
+    if not na(trade_entry) and not na(trade_dir)
+        if trade_dir == "BUY"
+            result := (price - trade_entry) * pip_value
+        else if trade_dir == "SELL"
+            result := (trade_entry - price) * pip_value
+    result
+
+
+// Compute USD values for each level (relative to entry)
+float pnl_entry_usd = na
+float pnl_sl_usd    = na
+float pnl_tp1_usd   = na
+float pnl_tp2_usd   = na
+float pnl_tp3_usd   = na
+
+if not na(trade_entry)
+    pnl_entry_usd := 0.0
+
+if not na(trade_sl)
+    pnl_sl_usd := calc_pnl_usd(trade_sl)
+
+if not na(trade_tp1)
+    pnl_tp1_usd := calc_pnl_usd(trade_tp1)
+
+if not na(trade_tp2)
+    pnl_tp2_usd := calc_pnl_usd(trade_tp2)
+
+if not na(trade_tp3)
+    pnl_tp3_usd := calc_pnl_usd(trade_tp3)
+
+// Format helper for signed display
+fmt_usd(x) =>
+    na(x) ? "NA" : ((x > 0 ? "+" : (x < 0 ? "" : "")) + str.tostring(x, "#.##"))
+
+// Fill the trade table (header, price row, $ PnL row)
+if barstate.islast
+    // Header row
+    table.cell(trade_table, 0, 0, "Signal", text_color = color.white, text_halign = text.align_center)
+    table.cell(trade_table, 1, 0, "Entry",  text_color = color.white, text_halign = text.align_center)
+    table.cell(trade_table, 2, 0, "SL",     text_color = color.white, text_halign = text.align_center)
+    table.cell(trade_table, 3, 0, "TP1",    text_color = color.white, text_halign = text.align_center)
+    table.cell(trade_table, 4, 0, "TP2",    text_color = color.white, text_halign = text.align_center)
+    table.cell(trade_table, 5, 0, "TP3",    text_color = color.white, text_halign = text.align_center)
+
+    // Price row
+    table.cell(trade_table, 0, 1, trade_dir, text_color = trade_dir == "BUY" ? color.green : trade_dir == "SELL" ? color.red : color.gray, text_halign = text.align_center)
+    table.cell(trade_table, 1, 1, na(trade_entry) ? "NA" : str.tostring(trade_entry, format.mintick), text_color = color.white, text_halign = text.align_center)
+    table.cell(trade_table, 2, 1, na(trade_sl) ? "NA" : str.tostring(trade_sl, format.mintick),      text_color = color.red,   text_halign = text.align_center)
+    table.cell(trade_table, 3, 1, na(trade_tp1) ? "NA" : str.tostring(trade_tp1, format.mintick),  text_color = color.green, text_halign = text.align_center)
+    table.cell(trade_table, 4, 1, na(trade_tp2) ? "NA" : str.tostring(trade_tp2, format.mintick),  text_color = color.green, text_halign = text.align_center)
+    table.cell(trade_table, 5, 1, na(trade_tp3) ? "NA" : str.tostring(trade_tp3, format.mintick),  text_color = color.green, text_halign = text.align_center)
+
+    // $ PnL row (relative to entry; sign respects BUY/SELL)
+    table.cell(trade_table, 0, 2, "BTC PnL ($)", text_color = color.white, text_halign = text.align_center)
+    table.cell(trade_table, 1, 2, na(pnl_entry_usd) ? "NA" : str.tostring(pnl_entry_usd, "#.##"), text_color = color.gray, text_halign = text.align_center)
+    table.cell(trade_table, 2, 2, fmt_usd(pnl_sl_usd),  text_color = (na(pnl_sl_usd) ? color.gray : pnl_sl_usd > 0 ? color.green : pnl_sl_usd < 0 ? color.red : color.gray), text_halign = text.align_center)
+    table.cell(trade_table, 3, 2, fmt_usd(pnl_tp1_usd), text_color = (na(pnl_tp1_usd) ? color.gray : pnl_tp1_usd > 0 ? color.green : pnl_tp1_usd < 0 ? color.red : color.gray), text_halign = text.align_center)
+    table.cell(trade_table, 4, 2, fmt_usd(pnl_tp2_usd), text_color = (na(pnl_tp2_usd) ? color.gray : pnl_tp2_usd > 0 ? color.green : pnl_tp2_usd < 0 ? color.red : color.gray), text_halign = text.align_center)
+    table.cell(trade_table, 5, 2, fmt_usd(pnl_tp3_usd), text_color = (na(pnl_tp3_usd) ? color.gray : pnl_tp3_usd > 0 ? color.green : pnl_tp3_usd < 0 ? color.red : color.gray), text_halign = text.align_center)
+
+
